@@ -4,8 +4,7 @@ export function getPmEmployeeId(user = {}) {
 }
 
 export function getPmProjectIds(parentProjects = [], pmEmployeeId) {
-  // No employee_id linked — return all project IDs so the PM sees everything
-  if (!pmEmployeeId) return new Set(parentProjects.map((p) => p.id));
+  if (!pmEmployeeId) return new Set();
 
   return new Set(
     parentProjects
@@ -25,8 +24,7 @@ export function getPmSubProjects(
   pmEmployeeId,
   allocations = []
 ) {
-  // No employee_id linked — show all sub-projects
-  if (!pmEmployeeId) return subProjects;
+  if (!pmEmployeeId) return [];
   const projectIds = getPmProjectIds(parentProjects, pmEmployeeId);
   const allocatedSubProjectIds = new Set(
     allocations

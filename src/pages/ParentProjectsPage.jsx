@@ -149,6 +149,17 @@ const ParentProjectsPage = () => {
 
     return (
         <div className="space-y-6">
+            {/* Session warning for PMs without a linked employee record */}
+            {isPm && !pmEmployeeId && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <span className="text-amber-500 text-lg">⚠️</span>
+                    <p className="text-sm text-amber-800">
+                        Your account is not yet linked to an employee profile.
+                        Please <strong>sign out and log in again</strong> to activate full PM scoping.
+                    </p>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
