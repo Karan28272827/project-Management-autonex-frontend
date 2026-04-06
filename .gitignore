@@ -32,3 +32,4 @@ coverage/
 .turbo/
 *.tgz
 node_modules
+.vercel

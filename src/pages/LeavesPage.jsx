@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leaveApi, employeeApi } from '../services/api';
-import { Plus, X, Calendar, Trash2 } from 'lucide-react';
+import { Plus, X, Calendar, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { getEndDateValidationMessage, isEndDateBeforeStartDate } from '../utils/dateValidation';
@@ -14,7 +14,7 @@ import {
 const LeavesPage = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const { data: leaves = [], isLoading } = useQuery({
     queryKey: ['leaves'],
@@ -24,6 +24,28 @@ const LeavesPage = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
     queryFn: employeeApi.getAll,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => leaveApi.approve(id, user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['leaves']);
+      toast.success('Leave approved and synced to Razorpay');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.detail || 'Failed to approve leave');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id) => leaveApi.reject(id, user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['leaves']);
+      toast.success('Leave rejected');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.detail || 'Failed to reject leave');
+    },
   });
 
   const createMutation = useMutation({
@@ -134,13 +156,14 @@ const LeavesPage = () => {
                 <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Start Date</th>
                 <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">End Date</th>
                 <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Duration</th>
+                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {leaves.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-5 py-16 text-center">
+                  <td colSpan="7" className="px-5 py-16 text-center">
                     <div className="text-slate-400">
                       <p className="text-lg font-medium mb-1">No leaves recorded yet</p>
                       <p className="text-sm">Add a leave record to get started</p>
@@ -187,18 +210,59 @@ const LeavesPage = () => {
                         </span>
                         <span className="text-xs text-slate-400 ml-1">{duration === 1 ? 'day' : 'days'}</span>
                       </td>
+                      <td className="px-5 py-4 text-center">
+                        {(!leave.status || leave.status === 'pending') && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                            <Clock className="w-3 h-3" /> Pending
+                          </span>
+                        )}
+                        {leave.status === 'approved' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle className="w-3 h-3" /> Approved
+                          </span>
+                        )}
+                        {leave.status === 'rejected' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                            <XCircle className="w-3 h-3" /> Rejected
+                          </span>
+                        )}
+                      </td>
                       <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Delete this leave record?')) {
-                              deleteMutation.mutate(leave.leave_id);
-                            }
-                          }}
-                          className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {(leave.status === 'pending' || !leave.status) && (
+                            <>
+                              <button
+                                onClick={() => approveMutation.mutate(leave.leave_id)}
+                                disabled={approveMutation.isPending}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                title="Approve"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => rejectMutation.mutate(leave.leave_id)}
+                                disabled={rejectMutation.isPending}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                                title="Reject"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Delete this leave record?')) {
+                                deleteMutation.mutate(leave.leave_id);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

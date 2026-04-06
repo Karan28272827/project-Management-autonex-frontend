@@ -40,7 +40,7 @@ const ParentProjectsPage = () => {
             setIsModalOpen(false);
             toast.success('Project created successfully');
         },
-        onError: (err) => toast.error(err.message || 'Failed to create project'),
+        onError: (err) => toast.error(err.response?.data?.detail || err.message || 'Failed to create project'),
     });
 
     const updateMutation = useMutation({
@@ -51,7 +51,7 @@ const ParentProjectsPage = () => {
             setEditingProject(null);
             toast.success('Project updated successfully');
         },
-        onError: (err) => toast.error(err.message || 'Failed to update project'),
+        onError: (err) => toast.error(err.response?.data?.detail || err.message || 'Failed to update project'),
     });
 
     const deleteMutation = useMutation({
@@ -409,12 +409,11 @@ const ParentProjectsPage = () => {
                                     </label>
                                     <select
                                         name="program_manager_id"
-                                        required
                                         defaultValue={editingProject?.program_manager_id || ''}
                                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
                                     >
-                                        <option value="">Select PM</option>
-                                        {employees.filter(e => e.status === 'active' && e.designation === 'Program Manager').map((emp) => (
+                                        <option value="">Select PM (optional)</option>
+                                        {employees.filter(e => e.status === 'active').map((emp) => (
                                             <option key={emp.id} value={emp.id}>
                                                 {emp.name}
                                             </option>

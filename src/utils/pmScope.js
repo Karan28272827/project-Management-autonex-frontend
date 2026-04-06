@@ -1,5 +1,6 @@
 export function getPmEmployeeId(user = {}) {
-  return user.employee_id ?? user.id ?? null;
+  // Only use employee_id — user.id is a User table PK, not an Employee table PK
+  return user.employee_id ?? null;
 }
 
 export function getPmProjectIds(parentProjects = [], pmEmployeeId) {

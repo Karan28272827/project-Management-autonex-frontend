@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FolderKanban, Calendar, Rocket, LogOut, Menu, X, FileText, Layers, UserCog, UserRound, Users } from 'lucide-react';
 import BrandLockup from '../components/brand/BrandLockup';
+import NotificationBell from '../components/NotificationBell';
 
 const accentTheme = {
     pm: {
@@ -111,7 +112,10 @@ const EmployeeLayout = () => {
                         <Menu className="w-5 h-5" />
                     </button>
                     <div className="hidden lg:block" />
-                    <div className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${theme.chip}`}>{role}</div>
+                    <div className="flex items-center gap-3">
+                        <NotificationBell />
+                        <div className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${theme.chip}`}>{role}</div>
+                    </div>
                 </header>
 
                 <main className="flex-1 overflow-auto p-6 lg:p-8">

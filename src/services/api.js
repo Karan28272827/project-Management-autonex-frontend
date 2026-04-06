@@ -147,4 +147,11 @@ export const guidelineApi = {
     delete: (id) => api.delete(`/guidelines/${id}`).then(res => res.data),
 };
 
+// === Notifications API ===
+export const notificationApi = {
+    getAll: (userId) => api.get('/notifications', { params: { user_id: userId } }).then(res => res.data),
+    markRead: (id, userId) => api.patch(`/notifications/${id}/read`, null, { params: { user_id: userId } }).then(res => res.data),
+    markAllRead: (userId) => api.patch('/notifications/read-all', null, { params: { user_id: userId } }).then(res => res.data),
+};
+
 export default api;

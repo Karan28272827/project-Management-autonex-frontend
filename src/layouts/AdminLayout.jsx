@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { subProjectApi, employeeApi } from '../services/api';
 import BrandLockup from '../components/brand/BrandLockup';
+import NotificationBell from '../components/NotificationBell';
 
 const AdminLayout = () => {
   const location = useLocation();
@@ -137,7 +138,10 @@ const AdminLayout = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            {/* Notification Bell */}
+            <NotificationBell />
+
             {/* Search Bar */}
             <div className="relative">
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-100/50 rounded-full border border-slate-200 focus-within:ring-2 focus-within:ring-indigo-100 transition-all w-64">
