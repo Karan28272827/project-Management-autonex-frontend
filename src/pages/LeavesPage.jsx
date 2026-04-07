@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { leaveApi, employeeApi } from '../services/api';
-import { Plus, X, Calendar, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { leaveApi, employeeApi, wfhApi } from '../services/api';
+import { Plus, X, Calendar, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { getEndDateValidationMessage, isEndDateBeforeStartDate } from '../utils/dateValidation';
-import {
-  getLeaveTypeBadgeClass,
-  getLeaveTypeLabel,
-  LEAVE_TYPE_OPTIONS,
-} from '../utils/leaveTypes';
+import { getLeaveTypeBadgeClass, getLeaveTypeLabel, LEAVE_TYPE_OPTIONS } from '../utils/leaveTypes';
+import LeaveCalendar from '../components/LeaveCalendar';
+
+const TABS = ['Leave List', 'Calendar', 'WFH Requests'];
 
 const LeavesPage = () => {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('Leave List');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [remarkModal, setRemarkModal] = useState(null); // { leaveId }
+  const [remark, setRemark] = useState('');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const { data: leaves = [], isLoading } = useQuery({
@@ -26,26 +28,27 @@ const LeavesPage = () => {
     queryFn: employeeApi.getAll,
   });
 
+  const { data: wfhRequests = [] } = useQuery({
+    queryKey: ['wfh'],
+    queryFn: () => wfhApi.getAll(),
+  });
+
+  // ── Leave mutations ──────────────────────────────────────────────
   const approveMutation = useMutation({
-    mutationFn: (id) => leaveApi.approve(id, user.id),
+    mutationFn: ({ id, remark }) => leaveApi.approve(id, user.id, remark),
     onSuccess: () => {
       queryClient.invalidateQueries(['leaves']);
-      toast.success('Leave approved and synced to Razorpay');
+      setRemarkModal(null);
+      setRemark('');
+      toast.success('Leave approved');
     },
-    onError: (err) => {
-      toast.error(err.response?.data?.detail || 'Failed to approve leave');
-    },
+    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to approve leave'),
   });
 
   const rejectMutation = useMutation({
     mutationFn: (id) => leaveApi.reject(id, user.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leaves']);
-      toast.success('Leave rejected');
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.detail || 'Failed to reject leave');
-    },
+    onSuccess: () => { queryClient.invalidateQueries(['leaves']); toast.success('Leave rejected'); },
+    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to reject leave'),
   });
 
   const createMutation = useMutation({
@@ -55,332 +58,298 @@ const LeavesPage = () => {
       setIsModalOpen(false);
       toast.success('Leave record created successfully');
     },
-    onError: (err) => {
-      console.error('Create leave error:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to create leave';
-      toast.error(errorMessage);
-    }
+    onError: (err) => toast.error(err.response?.data?.detail || err.message || 'Failed to create leave'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: leaveApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leaves']);
-      toast.success('Leave record deleted successfully');
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.detail || 'Failed to delete leave');
-    }
+    onSuccess: () => { queryClient.invalidateQueries(['leaves']); toast.success('Leave deleted'); },
+    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to delete leave'),
   });
+
+  // ── WFH mutations ────────────────────────────────────────────────
+  const wfhApproveMutation = useMutation({
+    mutationFn: (id) => wfhApi.approve(id, user.id),
+    onSuccess: () => { queryClient.invalidateQueries(['wfh']); queryClient.invalidateQueries(['leave-calendar']); toast.success('WFH approved'); },
+    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to approve WFH'),
+  });
+
+  const wfhRejectMutation = useMutation({
+    mutationFn: (id) => wfhApi.reject(id, user.id),
+    onSuccess: () => { queryClient.invalidateQueries(['wfh']); toast.success('WFH rejected'); },
+    onError: (err) => toast.error(err.response?.data?.detail || 'Failed to reject WFH'),
+  });
+
+  const wfhDeleteMutation = useMutation({
+    mutationFn: wfhApi.delete,
+    onSuccess: () => { queryClient.invalidateQueries(['wfh']); toast.success('WFH request deleted'); },
+  });
+
+  const handleApprove = (leave) => {
+    if (leave.flagged) {
+      setRemarkModal({ leaveId: leave.leave_id });
+    } else {
+      approveMutation.mutate({ id: leave.leave_id, remark: null });
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const formData = new FormData(e.target);
     const employeeId = formData.get('employee_id');
     const startDate = formData.get('start_date');
     const endDate = formData.get('end_date');
     const leaveType = formData.get('leave_type');
-
-    if (!employeeId || employeeId === '') {
-      toast.error('Please select an employee');
-      return;
-    }
-
-    if (isEndDateBeforeStartDate(startDate, endDate)) {
-      toast.error(getEndDateValidationMessage());
-      return;
-    }
-
-    const data = {
-      employee_id: parseInt(employeeId),
-      start_date: startDate,
-      end_date: endDate,
-      leave_type: leaveType,
-    };
-
-    createMutation.mutate(data);
+    if (!employeeId) { toast.error('Please select an employee'); return; }
+    if (isEndDateBeforeStartDate(startDate, endDate)) { toast.error(getEndDateValidationMessage()); return; }
+    createMutation.mutate({ employee_id: parseInt(employeeId), start_date: startDate, end_date: endDate, leave_type: leaveType });
   };
 
-  const getEmployeeName = (employeeId) => {
-    const employee = employees.find(e => e.id === employeeId);
-    return employee ? employee.name : `Employee #${employeeId}`;
-  };
-
+  const getEmployeeName = (id) => employees.find(e => e.id === id)?.name || `Employee #${id}`;
   const activeEmployees = employees.filter(e => e.status === 'active');
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-500">Loading leaves...</div>
-      </div>
-    );
-  }
+  const STATUS_BADGE = {
+    pending:  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"><Clock className="w-3 h-3"/>Pending</span>,
+    approved: <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"><CheckCircle className="w-3 h-3"/>Approved</span>,
+    rejected: <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200"><XCircle className="w-3 h-3"/>Rejected</span>,
+  };
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Leave Management</h1>
-          <p className="mt-1 text-sm text-slate-500">Track employee leaves and absences</p>
+          <p className="mt-1 text-sm text-slate-500">Track employee leaves, WFH requests, and attendance</p>
         </div>
-        <button
-          onClick={() => {
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Leave
-        </button>
+        {activeTab === 'Leave List' && (
+          <button onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /> Add Leave
+          </button>
+        )}
       </div>
 
-      {/* Warning if no employees */}
-      {activeEmployees.length === 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-sm text-amber-800">
-            ⚠️ Please create at least one active employee before recording leaves.
-          </p>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+        {TABS.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}>
+            {tab === 'WFH Requests' ? <span className="flex items-center gap-1.5"><Home className="w-3.5 h-3.5"/>{tab}</span> :
+             tab === 'Calendar' ? <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5"/>{tab}</span> : tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Leave List ── */}
+      {activeTab === 'Leave List' && (
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">Loading leaves...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <tr>
+                    {['Employee', 'Leave Type', 'Start Date', 'End Date', 'Duration', 'Status', 'Actions'].map(h => (
+                      <th key={h} className={`px-5 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider ${h === 'Duration' || h === 'Status' ? 'text-center' : h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leaves.length === 0 ? (
+                    <tr><td colSpan="7" className="px-5 py-16 text-center text-slate-400">No leaves recorded yet</td></tr>
+                  ) : leaves.map((leave) => {
+                    const start = new Date(leave.start_date);
+                    const end = new Date(leave.end_date);
+                    const duration = Math.ceil((end - start) / (1000*60*60*24)) || 1;
+                    const isPending = !leave.status || leave.status === 'pending';
+                    return (
+                      <tr key={leave.leave_id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-800">{getEmployeeName(leave.employee_id)}</span>
+                            {leave.flagged && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200">
+                                <AlertTriangle className="w-2.5 h-2.5"/>Over limit
+                              </span>
+                            )}
+                          </div>
+                          {leave.approval_remark && (
+                            <p className="text-xs text-slate-400 mt-0.5">Remark: {leave.approval_remark}</p>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getLeaveTypeBadgeClass(leave.leave_type)}`}>
+                            {getLeaveTypeLabel(leave.leave_type)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-slate-700">{format(start, 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-4 text-sm text-slate-700">{format(end, 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-4 text-center">
+                          <span className="text-lg font-semibold text-slate-800">{duration}</span>
+                          <span className="text-xs text-slate-400 ml-1">{duration === 1 ? 'day' : 'days'}</span>
+                        </td>
+                        <td className="px-5 py-4 text-center">{STATUS_BADGE[leave.status] || STATUS_BADGE.pending}</td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isPending && (
+                              <>
+                                <button onClick={() => handleApprove(leave)} disabled={approveMutation.isPending}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                                  <CheckCircle className="w-3.5 h-3.5"/>Approve
+                                </button>
+                                <button onClick={() => rejectMutation.mutate(leave.leave_id)} disabled={rejectMutation.isPending}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50">
+                                  <XCircle className="w-3.5 h-3.5"/>Reject
+                                </button>
+                              </>
+                            )}
+                            <button onClick={() => { if (window.confirm('Delete this leave record?')) deleteMutation.mutate(leave.leave_id); }}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-4 h-4"/>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Modern Card Container */}
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50/80 border-b border-slate-100">
-              <tr>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Employee</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Leave Type</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Start Date</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">End Date</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Duration</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {leaves.length === 0 ? (
+      {/* ── Tab: Calendar ── */}
+      {activeTab === 'Calendar' && <LeaveCalendar />}
+
+      {/* ── Tab: WFH Requests ── */}
+      {activeTab === 'WFH Requests' && (
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50/80 border-b border-slate-100">
                 <tr>
-                  <td colSpan="7" className="px-5 py-16 text-center">
-                    <div className="text-slate-400">
-                      <p className="text-lg font-medium mb-1">No leaves recorded yet</p>
-                      <p className="text-sm">Add a leave record to get started</p>
-                    </div>
-                  </td>
+                  {['Employee', 'Date', 'Reason', 'Status', 'Actions'].map(h => (
+                    <th key={h} className={`px-5 py-4 text-xs font-medium text-slate-400 uppercase tracking-wider ${h === 'Status' ? 'text-center' : h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
+                  ))}
                 </tr>
-              ) : (
-                leaves.map((leave) => {
-                  const start = new Date(leave.start_date);
-                  const end = new Date(leave.end_date);
-                  // Calculate duration as difference in days (Feb 6 to Feb 7 = 1 day)
-                  const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
-
-                  return (
-                    <tr key={leave.leave_id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
-                            <Calendar className="w-4 h-4 text-slate-500" />
-                          </div>
-                          <span className="font-semibold text-slate-800">
-                            {getEmployeeName(leave.employee_id)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getLeaveTypeBadgeClass(leave.leave_type)}`}>
-                          {getLeaveTypeLabel(leave.leave_type)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-slate-700">
-                          {format(start, 'MMM d, yyyy')}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm text-slate-700">
-                          {format(end, 'MMM d, yyyy')}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <span className="text-lg font-semibold text-slate-800">
-                          {duration}
-                        </span>
-                        <span className="text-xs text-slate-400 ml-1">{duration === 1 ? 'day' : 'days'}</span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        {(!leave.status || leave.status === 'pending') && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                            <Clock className="w-3 h-3" /> Pending
-                          </span>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {wfhRequests.length === 0 ? (
+                  <tr><td colSpan="5" className="px-5 py-16 text-center text-slate-400">No WFH requests yet</td></tr>
+                ) : wfhRequests.map((w) => (
+                  <tr key={w.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-5 py-4 font-semibold text-slate-800">{w.employee_name || getEmployeeName(w.employee_id)}</td>
+                    <td className="px-5 py-4 text-sm text-slate-700">{format(new Date(w.wfh_date + 'T00:00:00'), 'MMM d, yyyy')}</td>
+                    <td className="px-5 py-4 text-sm text-slate-500">{w.reason || '—'}</td>
+                    <td className="px-5 py-4 text-center">{STATUS_BADGE[w.status] || STATUS_BADGE.pending}</td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {w.status === 'pending' && (
+                          <>
+                            <button onClick={() => wfhApproveMutation.mutate(w.id)} disabled={wfhApproveMutation.isPending}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                              <CheckCircle className="w-3.5 h-3.5"/>Approve
+                            </button>
+                            <button onClick={() => wfhRejectMutation.mutate(w.id)} disabled={wfhRejectMutation.isPending}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50">
+                              <XCircle className="w-3.5 h-3.5"/>Reject
+                            </button>
+                          </>
                         )}
-                        {leave.status === 'approved' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle className="w-3 h-3" /> Approved
-                          </span>
-                        )}
-                        {leave.status === 'rejected' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                            <XCircle className="w-3 h-3" /> Rejected
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {(leave.status === 'pending' || !leave.status) && (
-                            <>
-                              <button
-                                onClick={() => approveMutation.mutate(leave.leave_id)}
-                                disabled={approveMutation.isPending}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                                title="Approve"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => rejectMutation.mutate(leave.leave_id)}
-                                disabled={rejectMutation.isPending}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                                title="Reject"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Delete this leave record?')) {
-                                deleteMutation.mutate(leave.leave_id);
-                              }
-                            }}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        <button onClick={() => { if (window.confirm('Delete this WFH request?')) wfhDeleteMutation.mutate(w.id); }}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Add Leave Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">Add Leave</h2>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* ── Flagged leave remark modal ── */}
+      {remarkModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-orange-100 rounded-lg shrink-0"><AlertTriangle className="w-5 h-5 text-orange-600"/></div>
+              <div>
+                <h3 className="font-semibold text-slate-800">Justification Required</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  This employee has exceeded the monthly paid leave limit (2 leaves/month).
+                  A justification remark is required to approve this request.
+                </p>
               </div>
             </div>
+            <textarea
+              value={remark}
+              onChange={e => setRemark(e.target.value)}
+              placeholder="Enter justification for approving this additional leave..."
+              className="w-full rounded-xl border border-slate-200 p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              rows={4}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => { setRemarkModal(null); setRemark(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={() => approveMutation.mutate({ id: remarkModal.leaveId, remark })}
+                disabled={!remark.trim() || approveMutation.isPending}
+                className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                {approveMutation.isPending ? 'Approving...' : 'Approve with Remark'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <form onSubmit={handleSubmit} className="p-6">
-
-
-              {activeEmployees.length === 0 && (
-                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    No active employees available. Please create an active employee first.
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-4">
+      {/* ── Add Leave Modal ── */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Add Leave</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee <span className="text-red-500">*</span></label>
+                <select name="employee_id" required className="input" disabled={activeEmployees.length === 0}>
+                  <option value="">Select employee</option>
+                  {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name} - {e.employee_type}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type <span className="text-red-500">*</span></label>
+                <select name="leave_type" required className="input">
+                  <option value="">Select type</option>
+                  {LEAVE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="employee_id"
-                    required
-                    className="input"
-                    disabled={activeEmployees.length === 0}
-                  >
-                    <option value="">Select employee</option>
-                    {activeEmployees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name} - {employee.employee_type}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date <span className="text-red-500">*</span></label>
+                  <input type="date" name="start_date" required className="input"/>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Leave Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="leave_type"
-                    required
-                    className="input"
-                  >
-                    <option value="">Select type</option>
-                    {LEAVE_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      name="start_date"
-                      required
-                      className="input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      name="end_date"
-                      required
-                      className="input"
-                    />
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date <span className="text-red-500">*</span></label>
+                  <input type="date" name="end_date" required className="input"/>
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || activeEmployees.length === 0}
-                  className="btn btn-primary"
-                >
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" disabled={createMutation.isPending || activeEmployees.length === 0} className="btn btn-primary">
                   {createMutation.isPending ? 'Creating...' : 'Create Leave'}
                 </button>
               </div>

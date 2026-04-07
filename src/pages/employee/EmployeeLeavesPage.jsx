@@ -1,22 +1,31 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { leaveApi } from '../../services/api';
-import { Calendar, Plus, X, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { leaveApi, wfhApi } from '../../services/api';
+import { Calendar, Plus, X, CheckCircle, XCircle, Clock, Home, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { getEndDateValidationMessage, isEndDateBeforeStartDate } from '../../utils/dateValidation';
-import {
-    getLeaveTypeLabel,
-    LEAVE_TYPE_OPTIONS,
-    RAZORPAY_NEGATIVE_BALANCE_NOTE,
-} from '../../utils/leaveTypes';
+import { getLeaveTypeLabel, LEAVE_TYPE_OPTIONS, RAZORPAY_NEGATIVE_BALANCE_NOTE } from '../../utils/leaveTypes';
+import LeaveCalendar from '../../components/LeaveCalendar';
+
+const TABS = ['My Leaves', 'Calendar', 'Work From Home'];
+
+const STATUS_STYLES = {
+    pending:  'bg-amber-50 text-amber-700 border-amber-200',
+    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    rejected: 'bg-red-50 text-red-700 border-red-200',
+};
 
 const EmployeeLeavesPage = () => {
     const queryClient = useQueryClient();
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const employeeId = user.employee_id;
-    const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ leave_type: 'paid', start_date: '', end_date: '', reason: '' });
+
+    const [activeTab, setActiveTab] = useState('My Leaves');
+    const [showLeaveForm, setShowLeaveForm] = useState(false);
+    const [showWfhForm, setShowWfhForm] = useState(false);
+    const [leaveForm, setLeaveForm] = useState({ leave_type: 'paid', start_date: '', end_date: '', reason: '' });
+    const [wfhForm, setWfhForm] = useState({ wfh_date: '', reason: '' });
 
     const { data: allLeaves = [], isLoading } = useQuery({
         queryKey: ['my-leaves', employeeId],
@@ -24,127 +33,261 @@ const EmployeeLeavesPage = () => {
         enabled: !!employeeId,
     });
 
-    const createMutation = useMutation({
-        mutationFn: (data) => leaveApi.create({ ...data, employee_id: employeeId }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
-            toast.success('Leave request submitted successfully');
-            setShowForm(false);
-            setForm({ leave_type: 'paid', start_date: '', end_date: '', reason: '' });
-        },
-        onError: (err) =>
-            toast.error(
-                err?.response?.data?.detail?.[0]?.msg ||
-                err?.response?.data?.detail ||
-                'Failed to create leave'
-            ),
+    const { data: myWfh = [] } = useQuery({
+        queryKey: ['my-wfh', employeeId],
+        queryFn: () => wfhApi.getAll({ employee_id: employeeId }),
+        enabled: !!employeeId,
     });
 
-    const statusStyles = {
-        pending: 'bg-amber-50 text-amber-700 border-amber-200',
-        approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        rejected: 'bg-red-50 text-red-700 border-red-200',
-    };
+    const createLeaveMutation = useMutation({
+        mutationFn: (data) => leaveApi.create({ ...data, employee_id: employeeId }),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
+            queryClient.invalidateQueries(['leave-calendar']);
+            setShowLeaveForm(false);
+            setLeaveForm({ leave_type: 'paid', start_date: '', end_date: '', reason: '' });
+            if (data.flagged) {
+                toast.success('Leave request submitted — flagged for exceeding monthly limit, awaiting approval with justification.');
+            } else {
+                toast.success('Leave request submitted successfully');
+            }
+        },
+        onError: (err) => toast.error(
+            err?.response?.data?.detail?.[0]?.msg ||
+            err?.response?.data?.detail ||
+            'Failed to submit leave'
+        ),
+    });
 
-    const handleSubmit = (e) => {
+    const createWfhMutation = useMutation({
+        mutationFn: (data) => wfhApi.create({ ...data, employee_id: employeeId }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-wfh'] });
+            queryClient.invalidateQueries(['leave-calendar']);
+            setShowWfhForm(false);
+            setWfhForm({ wfh_date: '', reason: '' });
+            toast.success('WFH request submitted successfully');
+        },
+        onError: (err) => toast.error(err?.response?.data?.detail || 'Failed to submit WFH request'),
+    });
+
+    const handleLeaveSubmit = (e) => {
         e.preventDefault();
-
-        if (isEndDateBeforeStartDate(form.start_date, form.end_date)) {
+        if (isEndDateBeforeStartDate(leaveForm.start_date, leaveForm.end_date)) {
             toast.error(getEndDateValidationMessage());
             return;
         }
-
-        createMutation.mutate(form);
+        createLeaveMutation.mutate(leaveForm);
     };
+
+    const handleWfhSubmit = (e) => {
+        e.preventDefault();
+        if (!wfhForm.wfh_date) { toast.error('Please select a date'); return; }
+        createWfhMutation.mutate(wfhForm);
+    };
+
+    const myEmployeeIdSet = employeeId ? new Set([employeeId]) : null;
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">My Leaves</h1>
-                    <p className="text-slate-500 text-sm mt-1">Track and request time off</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Leaves & Attendance</h1>
+                    <p className="text-slate-500 text-sm mt-1">Manage your time off and WFH requests</p>
                 </div>
-                <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
-                    <Plus className="w-4 h-4" /> Request Leave
-                </button>
+                <div className="flex gap-2">
+                    {activeTab === 'My Leaves' && (
+                        <button onClick={() => setShowLeaveForm(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+                            <Plus className="w-4 h-4"/> Request Leave
+                        </button>
+                    )}
+                    {activeTab === 'Work From Home' && (
+                        <button onClick={() => setShowWfhForm(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm">
+                            <Plus className="w-4 h-4"/> Request WFH
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Request Form */}
-            {showForm && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-800">New Leave Request</h3>
-                        <button onClick={() => setShowForm(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
-                    </div>
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-                            <select value={form.leave_type} onChange={e => setForm({ ...form, leave_type: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                                {LEAVE_TYPE_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                            </select>
+            {/* Tabs */}
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+                {TABS.map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}>
+                        {tab === 'Work From Home' ? <span className="flex items-center gap-1.5"><Home className="w-3.5 h-3.5"/>WFH</span> :
+                         tab === 'Calendar' ? <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5"/>{tab}</span> : tab}
+                    </button>
+                ))}
+            </div>
+
+            {/* ── My Leaves ── */}
+            {activeTab === 'My Leaves' && (
+                <>
+                    {/* Leave request form */}
+                    {showLeaveForm && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-slate-800">New Leave Request</h3>
+                                <button onClick={() => setShowLeaveForm(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                            </div>
+                            <form onSubmit={handleLeaveSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                                    <select value={leaveForm.leave_type} onChange={e => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                                        {LEAVE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                                    <input type="text" value={leaveForm.reason} onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Optional reason"/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                                    <input type="date" value={leaveForm.start_date} onChange={e => setLeaveForm({ ...leaveForm, start_date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" required/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                                    <input type="date" value={leaveForm.end_date} onChange={e => setLeaveForm({ ...leaveForm, end_date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" required/>
+                                </div>
+                                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                    {RAZORPAY_NEGATIVE_BALANCE_NOTE}
+                                </div>
+                                <div className="md:col-span-2 flex justify-end">
+                                    <button type="submit" disabled={createLeaveMutation.isPending}
+                                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                                        {createLeaveMutation.isPending ? 'Submitting...' : 'Apply Leave'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
-                            <input type="text" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Optional reason" />
+                    )}
+
+                    {isLoading ? (
+                        <div className="text-center py-12 text-slate-400 animate-pulse">Loading...</div>
+                    ) : allLeaves.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4"/>
+                            <p className="text-slate-500 font-medium">No leave records</p>
+                            <p className="text-sm text-slate-400 mt-1">Click "Request Leave" to submit a new request.</p>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-                            <input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" required />
+                    ) : (
+                        <div className="space-y-3">
+                            {allLeaves.map(leave => {
+                                const status = leave.status || 'pending';
+                                return (
+                                    <div key={leave.leave_id} className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-2 rounded-lg ${status === 'approved' ? 'bg-emerald-50' : status === 'rejected' ? 'bg-red-50' : 'bg-amber-50'}`}>
+                                                    {status === 'approved' && <CheckCircle className="w-5 h-5 text-emerald-600"/>}
+                                                    {status === 'rejected' && <XCircle className="w-5 h-5 text-red-500"/>}
+                                                    {status === 'pending' && <Clock className="w-5 h-5 text-amber-600"/>}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-slate-800">{getLeaveTypeLabel(leave.leave_type)}</p>
+                                                        {leave.flagged && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200">
+                                                                <AlertTriangle className="w-2.5 h-2.5"/>Exceeds monthly limit
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-slate-400">
+                                                        {format(parseISO(leave.start_date), 'MMM dd')} — {format(parseISO(leave.end_date), 'MMM dd, yyyy')}
+                                                        {leave.reason && ` • ${leave.reason}`}
+                                                    </p>
+                                                    {leave.approval_remark && (
+                                                        <p className="text-xs text-slate-500 mt-0.5">Approval remark: {leave.approval_remark}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${STATUS_STYLES[status]}`}>{status}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-                            <input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" required />
-                        </div>
-                        <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            {RAZORPAY_NEGATIVE_BALANCE_NOTE}
-                        </div>
-                        <div className="md:col-span-2 flex justify-end">
-                            <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
-                                Apply Leave
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    )}
+                </>
             )}
 
-            {/* Leaves List */}
-            {isLoading ? (
-                <div className="text-center py-12 text-slate-400 animate-pulse">Loading...</div>
-            ) : allLeaves.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-                    <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 font-medium">No leave records</p>
-                    <p className="text-sm text-slate-400 mt-1">Click "Request Leave" to submit a new request.</p>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {allLeaves.map(leave => {
-                        const status = leave.status || 'pending';
-                        return (
-                            <div key={leave.leave_id} className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-2 rounded-lg ${status === 'approved' ? 'bg-emerald-50' : status === 'rejected' ? 'bg-red-50' : 'bg-amber-50'}`}>
-                                        {status === 'approved' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
-                                        {status === 'rejected' && <XCircle className="w-5 h-5 text-red-500" />}
-                                        {status === 'pending' && <Clock className="w-5 h-5 text-amber-600" />}
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-slate-800">{getLeaveTypeLabel(leave.leave_type)}</p>
-                                        <p className="text-xs text-slate-400">
-                                            {format(parseISO(leave.start_date), 'MMM dd')} — {format(parseISO(leave.end_date), 'MMM dd, yyyy')}
-                                            {leave.reason && ` • ${leave.reason}`}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusStyles[status]}`}>{status}</span>
-                                </div>
+            {/* ── Calendar ── */}
+            {activeTab === 'Calendar' && (
+                <LeaveCalendar filterEmployeeIds={myEmployeeIdSet} />
+            )}
+
+            {/* ── Work From Home ── */}
+            {activeTab === 'Work From Home' && (
+                <>
+                    {showWfhForm && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-slate-800">New WFH Request</h3>
+                                <button onClick={() => setShowWfhForm(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                             </div>
-                        );
-                    })}
-                </div>
+                            <form onSubmit={handleWfhSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                                    <input type="date" value={wfhForm.wfh_date} onChange={e => setWfhForm({ ...wfhForm, wfh_date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" required/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                                    <input type="text" value={wfhForm.reason} onChange={e => setWfhForm({ ...wfhForm, reason: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Optional reason"/>
+                                </div>
+                                <div className="md:col-span-2 flex justify-end">
+                                    <button type="submit" disabled={createWfhMutation.isPending}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
+                                        {createWfhMutation.isPending ? 'Submitting...' : 'Submit WFH Request'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {myWfh.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                            <Home className="w-12 h-12 text-slate-300 mx-auto mb-4"/>
+                            <p className="text-slate-500 font-medium">No WFH requests</p>
+                            <p className="text-sm text-slate-400 mt-1">Click "Request WFH" to apply in advance.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {myWfh.map(w => {
+                                const status = w.status || 'pending';
+                                return (
+                                    <div key={w.id} className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-2 rounded-lg ${status === 'approved' ? 'bg-purple-50' : status === 'rejected' ? 'bg-red-50' : 'bg-amber-50'}`}>
+                                                {status === 'approved' && <CheckCircle className="w-5 h-5 text-purple-600"/>}
+                                                {status === 'rejected' && <XCircle className="w-5 h-5 text-red-500"/>}
+                                                {status === 'pending' && <Clock className="w-5 h-5 text-amber-600"/>}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-800">Work From Home</p>
+                                                <p className="text-xs text-slate-400">
+                                                    {format(new Date(w.wfh_date + 'T00:00:00'), 'MMM dd, yyyy')}
+                                                    {w.reason && ` • ${w.reason}`}
+                                                </p>
+                                                {w.remark && <p className="text-xs text-slate-500 mt-0.5">Remark: {w.remark}</p>}
+                                            </div>
+                                        </div>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${STATUS_STYLES[status]}`}>{status}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

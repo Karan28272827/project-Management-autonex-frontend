@@ -101,9 +101,18 @@ export const leaveApi = {
     create: (data) => api.post('/leaves', data).then(res => res.data),
     update: (id, data) => api.put(`/leaves/${id}`, data).then(res => res.data),
     delete: (id) => api.delete(`/leaves/${id}`).then(res => res.data),
-    approve: (id, approvedBy) => api.patch(`/leaves/${id}/approve`, null, { params: { approved_by: approvedBy } }).then(res => res.data),
+    approve: (id, approvedBy, remark) => api.patch(`/leaves/${id}/approve`, { remark: remark || null }, { params: { approved_by: approvedBy } }).then(res => res.data),
     reject: (id, approvedBy) => api.patch(`/leaves/${id}/reject`, null, { params: { approved_by: approvedBy } }).then(res => res.data),
     applyToRazorpay: (id) => api.post(`/leaves/${id}/apply-to-razorpay`).then(res => res.data),
+    getCalendar: (month) => api.get('/leaves/calendar', { params: { month } }).then(res => res.data),
+};
+
+export const wfhApi = {
+    getAll: (params) => api.get('/wfh', { params }).then(res => res.data),
+    create: (data) => api.post('/wfh', data).then(res => res.data),
+    approve: (id, approvedBy, remark) => api.patch(`/wfh/${id}/approve`, { remark: remark || null }, { params: { approved_by: approvedBy } }).then(res => res.data),
+    reject: (id, approvedBy, remark) => api.patch(`/wfh/${id}/reject`, { remark: remark || null }, { params: { approved_by: approvedBy } }).then(res => res.data),
+    delete: (id) => api.delete(`/wfh/${id}`).then(res => res.data),
 };
 
 export const skillsApi = {

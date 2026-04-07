@@ -80,9 +80,9 @@ const ForgotPassword = () => {
                 accent={theme.accent}
                 eyebrow={theme.eyebrow}
                 title={theme.title}
-                description="Enter your work email and, if your account is configured, a secure reset link will be sent through Slack."
+                description="Enter your work email and we'll send a secure password reset link to your inbox."
                 highlights={[
-                    { title: 'Private Delivery', copy: 'Reset links are sent to your Slack DM instead of email.' },
+                    { title: 'Email Delivery', copy: 'Reset links are sent directly to your registered email address.' },
                     { title: '15-Minute Window', copy: 'Each link is short-lived and invalidated after use.' },
                 ]}
             />
@@ -97,7 +97,7 @@ const ForgotPassword = () => {
                     <div className="mt-6">
                         <h1 className="text-2xl font-bold tracking-tight">Forgot password?</h1>
                         <p className={`mt-2 text-sm ${theme.helper}`}>
-                            We’ll look up your account and send a private Slack reset link if your profile is configured for Slack delivery.
+                            We’ll look up your account and send a password reset link to your registered email address.
                         </p>
                     </div>
 
@@ -125,11 +125,11 @@ const ForgotPassword = () => {
                             {forgotPasswordMutation.isPending ? (
                                 <>
                                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                    Sending Slack link...
+                                    Sending reset link...
                                 </>
                             ) : (
                                 <>
-                                    Send Slack reset link
+                                    Send reset link
                                     <Send className="h-4 w-4" />
                                 </>
                             )}
@@ -138,7 +138,7 @@ const ForgotPassword = () => {
 
                     <div className={`mt-6 border-t pt-5 text-sm ${theme.border}`}>
                         <p className={theme.helper}>
-                            For security, the response stays generic even if the email or Slack mapping is missing.
+                            For security, the response stays generic even if the email address is not found.
                         </p>
                     </div>
                 </div>
