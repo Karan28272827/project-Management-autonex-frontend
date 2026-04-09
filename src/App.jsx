@@ -35,6 +35,8 @@ const EmployeeLeavesPage = lazy(() => import('./pages/employee/EmployeeLeavesPag
 const EmployeeGuidelinesPage = lazy(() => import('./pages/employee/EmployeeGuidelinesPage'));
 const SideProjectsPage = lazy(() => import('./pages/employee/SideProjectsPage'));
 const ProfilePage = lazy(() => import('./pages/employee/ProfilePage'));
+const SignupRequestsPage = lazy(() => import('./pages/SignupRequestsPage'));
+const EmployeeSignupPage = lazy(() => import('./pages/EmployeeSignupPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +60,7 @@ function App() {
             <Route path="/login/pm" element={<PMLogin />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/employee-signup" element={<EmployeeSignupPage />} />
             <Route path="/login" element={<Navigate to="/login/admin" replace />} />
 
             {/* Protected Admin Routes */}
@@ -73,6 +76,7 @@ function App() {
               <Route path="sub-projects" element={<SubProjectsPage />} />
               <Route path="allocations" element={<AllocationsPage />} />
               <Route path="leaves" element={<LeavesPage />} />
+              <Route path="signup-requests" element={<SignupRequestsPage />} />
               <Route path="guidelines" element={<GuidelinesPage />} />
             </Route>
 

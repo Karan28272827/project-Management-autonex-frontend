@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, Menu, Search } from 'lucide-react';
 import { navigation } from '../config/navigation';
-import api from '../services/api';
+import api, { signupRequestApi } from '../services/api';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { subProjectApi, employeeApi } from '../services/api';
@@ -27,6 +27,14 @@ const AdminLayout = () => {
     queryFn: subProjectApi.getAll,
     staleTime: 5 * 60 * 1000
   });
+
+  const { data: pendingSignups = [] } = useQuery({
+    queryKey: ['signup-requests', 'pending'],
+    queryFn: () => signupRequestApi.getAll({ status: 'pending' }),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const pendingSignupCount = pendingSignups.length;
 
   const filteredResults = {
     employees: (searchEmployees || []).filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 3),
@@ -93,7 +101,12 @@ const AdminLayout = () => {
               >
                 <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
                 {item.name}
-                {isActive && (
+                {item.href === '/admin/signup-requests' && pendingSignupCount > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                    {pendingSignupCount}
+                  </span>
+                )}
+                {isActive && item.href !== '/admin/signup-requests' && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 )}
               </Link>

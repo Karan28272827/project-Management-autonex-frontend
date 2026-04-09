@@ -107,6 +107,13 @@ export const leaveApi = {
     getCalendar: (month) => api.get('/leaves/calendar', { params: { month } }).then(res => res.data),
 };
 
+export const signupRequestApi = {
+    submit: (data) => api.post('/signup-requests', data).then(res => res.data),
+    getAll: (params) => api.get('/signup-requests', { params }).then(res => res.data),
+    approve: (id, reviewedBy) => api.patch(`/signup-requests/${id}/approve`, null, { params: { reviewed_by: reviewedBy } }).then(res => res.data),
+    reject: (id, reviewedBy, reason) => api.patch(`/signup-requests/${id}/reject`, { reason: reason || null }, { params: { reviewed_by: reviewedBy } }).then(res => res.data),
+};
+
 export const wfhApi = {
     getAll: (params) => api.get('/wfh', { params }).then(res => res.data),
     create: (data) => api.post('/wfh', data).then(res => res.data),

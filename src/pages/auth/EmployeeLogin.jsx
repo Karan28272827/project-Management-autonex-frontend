@@ -135,6 +135,16 @@ const EmployeeLogin = () => {
 
                     <div className="mt-6 space-y-2 text-center">
                         <p className="text-sm text-slate-500">
+                            New employee?{' '}
+                            <button
+                                type="button"
+                                onClick={() => navigate('/employee-signup')}
+                                className="font-medium text-emerald-600 hover:underline"
+                            >
+                                Request account access
+                            </button>
+                        </p>
+                        <p className="text-sm text-slate-500">
                             Having trouble?{' '}
                             <button
                                 type="button"
