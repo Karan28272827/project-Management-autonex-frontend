@@ -163,6 +163,16 @@ export const guidelineApi = {
     delete: (id) => api.delete(`/guidelines/${id}`).then(res => res.data),
 };
 
+// === Referrals API ===
+export const referralApi = {
+    getAll: (params) => api.get('/referrals', { params }).then(res => res.data),
+    getOne: (id) => api.get(`/referrals/${id}`).then(res => res.data),
+    create: (data) => api.post('/referrals', data).then(res => res.data),
+    updateStatus: (id, status, statusNote) =>
+        api.patch(`/referrals/${id}/status`, { status, status_note: statusNote || null }).then(res => res.data),
+    delete: (id) => api.delete(`/referrals/${id}`).then(res => res.data),
+};
+
 // === Notifications API ===
 export const notificationApi = {
     getAll: (userId) => api.get('/notifications', { params: { user_id: userId } }).then(res => res.data),
