@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { User, Mail, Phone, Briefcase, CheckCircle, X } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { signupRequestApi } from '../services/api';
 import AuthBrandPanel from '../components/brand/AuthBrandPanel';
@@ -17,9 +17,15 @@ const DESIGNATIONS = [
 
 const EMPLOYEE_TYPES = ['Full-time', 'Part-time', 'Intern', 'Contractor'];
 
-const SKILL_SUGGESTIONS = [
-    'Yutori Annotation', 'Robotics Annotation', 'Development', 'Robotics Data Collection',
-    'Data Labeling', 'Quality Review', 'Python', 'Machine Learning', 'Computer Vision',
+const WORK_CATEGORIES = [
+    'Yutori Verifier',
+    'Yutori Annotation',
+    'Robotics Annotation',
+    'Development',
+    'Robotics Data Collection',
+    'Data Labeling',
+    'Quality Review',
+    'Smart Factory Development',
 ];
 
 const EmployeeSignupPage = () => {
@@ -27,7 +33,6 @@ const EmployeeSignupPage = () => {
         name: '', email: '', phone: '', designation: '', employee_type: 'Full-time',
         skills: [], reason: '',
     });
-    const [skillInput, setSkillInput] = useState('');
     const [submitted, setSubmitted] = useState(false);
 
     const mutation = useMutation({
@@ -35,16 +40,6 @@ const EmployeeSignupPage = () => {
         onSuccess: () => setSubmitted(true),
         onError: (err) => toast.error(err.response?.data?.detail || 'Failed to submit request'),
     });
-
-    const addSkill = (skill) => {
-        const s = skill.trim();
-        if (s && !form.skills.includes(s)) {
-            setForm(f => ({ ...f, skills: [...f.skills, s] }));
-        }
-        setSkillInput('');
-    };
-
-    const removeSkill = (skill) => setForm(f => ({ ...f, skills: f.skills.filter(s => s !== skill) }));
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -156,39 +151,16 @@ const EmployeeSignupPage = () => {
                             </div>
                         </div>
 
-                        {/* Skills */}
+                        {/* Work Category */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Skills</label>
-                            <div className="flex gap-2 mb-2">
-                                <input type="text" value={skillInput} onChange={e => setSkillInput(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSkill(skillInput); } }}
-                                    placeholder="Type a skill and press Enter"
-                                    className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
-                                <button type="button" onClick={() => addSkill(skillInput)}
-                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-medium text-slate-600 transition-colors">Add</button>
-                            </div>
-                            {/* Suggestions */}
-                            <div className="flex flex-wrap gap-1.5 mb-2">
-                                {SKILL_SUGGESTIONS.filter(s => !form.skills.includes(s)).slice(0, 6).map(s => (
-                                    <button key={s} type="button" onClick={() => addSkill(s)}
-                                        className="px-2.5 py-1 rounded-lg bg-slate-100 text-xs text-slate-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors">
-                                        + {s}
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Selected skills */}
-                            {form.skills.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
-                                    {form.skills.map(s => (
-                                        <span key={s} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-medium">
-                                            {s}
-                                            <button type="button" onClick={() => removeSkill(s)} className="hover:text-red-600">
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Work Category</label>
+                            <select
+                                value={form.skills[0] || ''}
+                                onChange={e => setForm(f => ({ ...f, skills: e.target.value ? [e.target.value] : [] }))}
+                                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                                <option value="">Select a work category...</option>
+                                {WORK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
                         </div>
 
                         {/* Reason */}
