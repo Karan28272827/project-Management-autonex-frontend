@@ -163,6 +163,14 @@ export const guidelineApi = {
     delete: (id) => api.delete(`/guidelines/${id}`).then(res => res.data),
 };
 
+// === Payroll API ===
+export const payrollApi = {
+    getPreview: (month) => api.get('/payroll/preview', { params: { month } }).then(res => res.data),
+    save: (data) => api.post('/payroll/save', data).then(res => res.data),
+    getSaved: (month) => api.get('/payroll/saved', { params: { month } }).then(res => res.data),
+    exportCsvUrl: (month) => `${apiBaseUrl}/payroll/export.csv?month=${month}`,
+};
+
 // === Referrals API ===
 export const referralApi = {
     getAll: (params) => api.get('/referrals', { params }).then(res => res.data),

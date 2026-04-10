@@ -38,6 +38,7 @@ const ProfilePage = lazy(() => import('./pages/employee/ProfilePage'));
 const SignupRequestsPage = lazy(() => import('./pages/SignupRequestsPage'));
 const EmployeeSignupPage = lazy(() => import('./pages/EmployeeSignupPage'));
 const ReferralsPage = lazy(() => import('./pages/ReferralsPage'));
+const PayrollPage = lazy(() => import('./pages/PayrollPage'));
 const EmployeeReferralsPage = lazy(() => import('./pages/employee/EmployeeReferralsPage'));
 
 const queryClient = new QueryClient({
@@ -79,6 +80,7 @@ function App() {
               <Route path="allocations" element={<AllocationsPage />} />
               <Route path="leaves" element={<LeavesPage />} />
               <Route path="signup-requests" element={<SignupRequestsPage />} />
+              <Route path="payroll" element={<PayrollPage />} />
               <Route path="referrals" element={<ReferralsPage />} />
               <Route path="guidelines" element={<GuidelinesPage />} />
             </Route>
