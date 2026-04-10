@@ -165,9 +165,9 @@ const EmployeeSignupPage = () => {
 
                         {/* Reason */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Why do you want to join? <span className="text-slate-400 font-normal">(optional)</span></label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Work Description <span className="text-slate-400 font-normal">(optional)</span></label>
                             <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                                placeholder="Brief note about your role or background..."
+                                placeholder="Describe the work you did in previous projects"
                                 rows={3}
                                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none resize-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20" />
                         </div>
