@@ -506,6 +506,7 @@ const AllocationsPage = () => {
   const [selectedRoleTags, setSelectedRoleTags] = useState([]);
   const [timeDistribution, setTimeDistribution] = useState({});
   const [totalDailyHours, setTotalDailyHours] = useState(8);
+  const [employeeSearch, setEmployeeSearch] = useState('');
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['sub-projects'],
@@ -1038,6 +1039,17 @@ const AllocationsPage = () => {
                       </button>
                     </div>
 
+                    {/* Employee Search */}
+                    <div className="mb-3">
+                      <input
+                        type="text"
+                        value={employeeSearch}
+                        onChange={(e) => setEmployeeSearch(e.target.value)}
+                        placeholder="Search employees by name or email..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
                     {/* Warning for employees on leave */}
                     {(() => {
                       const skilledEmployeesOnLeave = employeesOnLeave.filter(emp => {
@@ -1070,11 +1082,18 @@ const AllocationsPage = () => {
 
                     {/* Employee List */}
                     {(() => {
-                      const displayEmployees = filterTab === 'unallocated'
+                      const allTabEmployees = filterTab === 'unallocated'
                         ? availableEmployees
                         : filterTab === 'allocated'
                           ? allocatedEmployeesOther
                           : [...availableEmployees, ...allocatedEmployeesOther];
+                      const q = employeeSearch.trim().toLowerCase();
+                      const displayEmployees = q
+                        ? allTabEmployees.filter(emp =>
+                            emp.name.toLowerCase().includes(q) ||
+                            (emp.email || '').toLowerCase().includes(q)
+                          )
+                        : allTabEmployees;
 
                       if (displayEmployees.length === 0) {
                         return (
