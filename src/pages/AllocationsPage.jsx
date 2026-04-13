@@ -641,27 +641,25 @@ const AllocationsPage = () => {
         }
       });
 
-      // Get employees matching skills and not already allocated to THIS project
-      const matchingEmployees = employees.filter(emp => {
-        // Must be active
-        if (emp.status !== 'active') return false;
-        // Must not be already allocated to THIS project
-        if (allocatedToCurrentProject.includes(emp.id)) return false;
-        // Must not be on leave
-        if (onLeaveIds.includes(emp.id)) return false;
-
-        // Skill matching: if project has no required expertise, show all employees
-        const requiredSkills = selectedProject.required_expertise || [];
-        if (requiredSkills.length === 0) return true;
-
-        // Otherwise, check if employee has at least one matching skill
-        const empSkills = emp.skills || [];
-        return requiredSkills.some(skill =>
-          empSkills.some(empSkill =>
-            empSkill.toLowerCase().includes(skill.toLowerCase())
-          )
-        );
-      });
+      // Get all active employees not already allocated to THIS project
+      const requiredSkills = selectedProject.required_expertise || [];
+      const matchingEmployees = employees
+        .filter(emp => {
+          if (emp.status !== 'active') return false;
+          if (allocatedToCurrentProject.includes(emp.id)) return false;
+          if (onLeaveIds.includes(emp.id)) return false;
+          return true;
+        })
+        .map(emp => {
+          const empSkills = emp.skills || [];
+          const skillMatch = requiredSkills.length === 0 || requiredSkills.some(skill =>
+            empSkills.some(empSkill =>
+              empSkill.toLowerCase().includes(skill.toLowerCase())
+            )
+          );
+          return { ...emp, skillMatch };
+        })
+        .sort((a, b) => b.skillMatch - a.skillMatch); // skill-matched employees first
 
       // Split into unallocated and allocated-to-other-projects
       const unallocatedList = matchingEmployees.filter(
@@ -1128,6 +1126,11 @@ const AllocationsPage = () => {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-gray-900">{employee.name}</p>
+                                    {employee.skillMatch && (
+                                      <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">
+                                        Skill Match
+                                      </span>
+                                    )}
                                     {employee.currentProjects && (
                                       <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-medium">
                                         Already Allocated
