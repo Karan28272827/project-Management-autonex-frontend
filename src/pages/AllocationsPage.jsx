@@ -474,7 +474,16 @@ import toast from 'react-hot-toast';
 import { getPmEmployeeId, getPmSubProjects } from '../utils/pmScope';
 
 // Role tag constants for time division
-const ROLE_TAGS = ['Annotation', 'Review', 'QC'];
+const ROLE_TAGS = [
+  'Yutori Verifier',
+  'Yutori Annotation',
+  'Robotics Annotation',
+  'Development',
+  'Robotics Data Collection',
+  'Data Labeling',
+  'Quality Review',
+  'Smart Factory Development',
+];
 
 const AllocationsPage = () => {
   const location = useLocation();
@@ -1175,16 +1184,18 @@ const AllocationsPage = () => {
                         <select
                           value={totalDailyHours}
                           onChange={(e) => {
-                            const newHours = parseInt(e.target.value);
+                            const newHours = e.target.value === '' ? '' : parseInt(e.target.value);
                             setTotalDailyHours(newHours);
-                            // Reset time distribution if new total is less than sum
-                            const currentSum = Object.values(timeDistribution).reduce((a, b) => a + b, 0);
-                            if (currentSum > newHours) {
-                              setTimeDistribution({});
+                            if (newHours !== '') {
+                              const currentSum = Object.values(timeDistribution).reduce((a, b) => a + b, 0);
+                              if (currentSum > newHours) {
+                                setTimeDistribution({});
+                              }
                             }
                           }}
-                          className="input w-24"
+                          className="input w-32"
                         >
+                          <option value="">Not specified</option>
                           {[4, 6, 8, 10, 12].map(h => (
                             <option key={h} value={h}>{h} hours</option>
                           ))}
@@ -1196,7 +1207,7 @@ const AllocationsPage = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Role Tags
                         </label>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
                           {ROLE_TAGS.map(tag => (
                             <label key={tag} className="flex items-center gap-2 cursor-pointer">
                               <input
@@ -1205,16 +1216,19 @@ const AllocationsPage = () => {
                                 onChange={(e) => {
                                   if (e.target.checked) {
                                     setSelectedRoleTags([...selectedRoleTags, tag]);
-                                    // Initialize with equal distribution
-                                    const newTags = [...selectedRoleTags, tag];
-                                    const hoursPerRole = Math.floor(totalDailyHours / newTags.length);
-                                    const newDist = {};
-                                    newTags.forEach((t, idx) => {
-                                      newDist[t] = idx === 0
-                                        ? totalDailyHours - (hoursPerRole * (newTags.length - 1))
-                                        : hoursPerRole;
-                                    });
-                                    setTimeDistribution(newDist);
+                                    if (totalDailyHours !== '') {
+                                      const newTags = [...selectedRoleTags, tag];
+                                      const hoursPerRole = Math.floor(totalDailyHours / newTags.length);
+                                      const newDist = {};
+                                      newTags.forEach((t, idx) => {
+                                        newDist[t] = idx === 0
+                                          ? totalDailyHours - (hoursPerRole * (newTags.length - 1))
+                                          : hoursPerRole;
+                                      });
+                                      setTimeDistribution(newDist);
+                                    } else {
+                                      setTimeDistribution(prev => ({ ...prev, [tag]: 0 }));
+                                    }
                                   } else {
                                     setSelectedRoleTags(selectedRoleTags.filter(t => t !== tag));
                                     const newDist = { ...timeDistribution };
