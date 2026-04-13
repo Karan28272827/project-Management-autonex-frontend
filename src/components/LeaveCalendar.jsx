@@ -58,7 +58,8 @@ export default function LeaveCalendar({ filterEmployeeIds = null }) {
             const start = new Date(leave.start_date + 'T00:00:00');
             const end = new Date(leave.end_date + 'T00:00:00');
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const key = d.toISOString().slice(0, 10);
+                // Use local date components to avoid UTC offset shifting the date
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 if (!map[key]) map[key] = [];
                 map[key].push({ ...leave, kind: 'leave' });
             }
