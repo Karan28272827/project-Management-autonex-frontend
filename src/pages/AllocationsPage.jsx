@@ -641,15 +641,10 @@ const AllocationsPage = () => {
         }
       });
 
-      // Get all active employees not already allocated to THIS project
+      // Get all active employees (including those already in this project so the list is never empty)
       const requiredSkills = selectedProject.required_expertise || [];
       const matchingEmployees = employees
-        .filter(emp => {
-          if (emp.status !== 'active') return false;
-          if (allocatedToCurrentProject.includes(emp.id)) return false;
-          if (onLeaveIds.includes(emp.id)) return false;
-          return true;
-        })
+        .filter(emp => emp.status !== 'active' ? false : true)
         .map(emp => {
           const empSkills = emp.skills || [];
           const skillMatch = requiredSkills.length === 0 || requiredSkills.some(skill =>
@@ -657,14 +652,24 @@ const AllocationsPage = () => {
               empSkill.toLowerCase().includes(skill.toLowerCase())
             )
           );
-          return { ...emp, skillMatch };
+          const alreadyInProject = allocatedToCurrentProject.includes(emp.id);
+          const onLeave = onLeaveIds.includes(emp.id);
+          return { ...emp, skillMatch, alreadyInProject, onLeave };
         })
-        .sort((a, b) => b.skillMatch - a.skillMatch); // skill-matched employees first
+        .sort((a, b) => {
+          // Sort: skill-matched first, then unallocated, then already-in-project, then on-leave
+          if (a.alreadyInProject !== b.alreadyInProject) return a.alreadyInProject ? 1 : -1;
+          if (a.onLeave !== b.onLeave) return a.onLeave ? 1 : -1;
+          return b.skillMatch - a.skillMatch;
+        });
 
       // Split into unallocated and allocated-to-other-projects
-      const unallocatedList = matchingEmployees.filter(
-        emp => !allocatedToOtherProjects[emp.id]
-      );
+      const unallocatedList = matchingEmployees
+        .filter(emp => !allocatedToOtherProjects[emp.id])
+        .map(emp => ({
+          ...emp,
+          currentProjects: allocatedToOtherProjects[emp.id] || null,
+        }));
 
       const allocatedOtherList = matchingEmployees
         .filter(emp => allocatedToOtherProjects[emp.id])
@@ -1112,16 +1117,17 @@ const AllocationsPage = () => {
                           {displayEmployees.map(employee => (
                             <div
                               key={employee.id}
-                              onClick={() => handleEmployeeToggle(employee)}
-                              className={`p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${selectedEmployees.find(e => e.id === employee.id) ? 'bg-blue-50' : ''
+                              onClick={() => !employee.alreadyInProject && !employee.onLeave && handleEmployeeToggle(employee)}
+                              className={`p-3 border-b border-gray-100 last:border-b-0 ${employee.alreadyInProject || employee.onLeave ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer hover:bg-gray-50'} ${selectedEmployees.find(e => e.id === employee.id) ? 'bg-blue-50' : ''
                                 }`}
                             >
                               <div className="flex items-center gap-3">
                                 <input
                                   type="checkbox"
                                   checked={!!selectedEmployees.find(e => e.id === employee.id)}
+                                  disabled={employee.alreadyInProject || employee.onLeave}
                                   onChange={() => { }}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
                                 />
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -1131,9 +1137,19 @@ const AllocationsPage = () => {
                                         Skill Match
                                       </span>
                                     )}
-                                    {employee.currentProjects && (
+                                    {employee.alreadyInProject && (
+                                      <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
+                                        In This Project
+                                      </span>
+                                    )}
+                                    {employee.onLeave && (
+                                      <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">
+                                        On Leave
+                                      </span>
+                                    )}
+                                    {employee.currentProjects && !employee.alreadyInProject && (
                                       <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-medium">
-                                        Already Allocated
+                                        Other Project
                                       </span>
                                     )}
                                   </div>
