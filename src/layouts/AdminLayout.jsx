@@ -67,8 +67,7 @@ const AdminLayout = () => {
     <div className="min-h-screen flex bg-slate-100 font-sans text-slate-900">
       {/* Sidebar - Dark Professional Theme */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-[linear-gradient(180deg,#020617_0%,#07142d_50%,#0b1b44_100%)] text-white transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:relative lg:translate-x-0`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-[linear-gradient(180deg,#020617_0%,#07142d_50%,#0b1b44_100%)] text-white transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Brand Header */}
         <div className="relative overflow-hidden border-b border-white/10 px-6 py-6">
@@ -91,6 +90,7 @@ const AdminLayout = () => {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                   ${isActive
@@ -142,7 +142,7 @@ const AdminLayout = () => {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
             >
               <Menu className="w-6 h-6" />
             </button>
