@@ -416,14 +416,15 @@ const ParentProjectsPage = () => {
                             ) : (
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Program Manager
+                                        Program Manager *
                                     </label>
                                     <select
                                         name="program_manager_id"
+                                        required
                                         defaultValue={editingProject?.program_manager_id || ''}
                                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
                                     >
-                                        <option value="">Select PM (optional)</option>
+                                        <option value="">Select PM</option>
                                         {employees.filter(e => e.status === 'active').map((emp) => (
                                             <option key={emp.id} value={emp.id}>
                                                 {emp.name}
@@ -466,7 +467,6 @@ const ParentProjectsPage = () => {
                                     <input
                                         type="number"
                                         name="tentative_duration_months"
-                                        required
                                         min="1"
                                         defaultValue={editingProject?.tentative_duration_months || ''}
                                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"

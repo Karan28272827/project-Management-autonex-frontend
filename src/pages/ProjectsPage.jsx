@@ -393,7 +393,7 @@ const ProjectsPage = () => {
       name: formData.get('name'),
       main_project_id: selectedMainProjectId,
       total_tasks: parseInt(formData.get('total_tasks')),
-      estimated_time_per_task: (parseFloat(formData.get('estimated_time_per_task')) || 0) / 60, // Store as hours, input is minutes
+      estimated_time_per_task: parseFloat(formData.get('estimated_time_per_task')) / 60, // Store as hours, input is minutes
       start_date: startDate,
       end_date: endDate,
       daily_target: parseInt(formData.get('daily_target')) || 0,

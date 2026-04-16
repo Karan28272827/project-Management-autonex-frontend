@@ -629,13 +629,28 @@ const EmployeesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
   const [designationFilter, setDesignationFilter] = useState('');
-
+  const [idleOnly, setIdleOnly] = useState(false);
 
   // Fetch employees
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: employeeApi.getAll,
   });
+
+  // Fetch all allocations so we can show assigned projects per employee
+  const { data: allocations = [], isLoading: allocationsLoading } = useQuery({
+    queryKey: ['allocations'],
+    queryFn: allocationApi.getAll,
+  });
+
+  // Build employee_id → Set<project_name> map
+  const employeeProjectsMap = allocations.reduce((map, alloc) => {
+    const projectName = alloc.sub_project_name || alloc.project_name;
+    if (!projectName) return map;
+    if (!map[alloc.employee_id]) map[alloc.employee_id] = new Set();
+    map[alloc.employee_id].add(projectName);
+    return map;
+  }, {});
 
   // Fetch skills from API
   const { data: skillsData = [], isLoading: skillsLoading } = useQuery({
@@ -744,10 +759,12 @@ const EmployeesPage = () => {
       (employee.designation && employee.designation.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesSkill = !skillFilter || (employee.skills && employee.skills.includes(skillFilter));
     const matchesDesignation = !designationFilter || employee.designation === designationFilter;
-    return matchesSearch && matchesSkill && matchesDesignation;
+    const isIdle = !employeeProjectsMap[employee.id];
+    const matchesIdle = !idleOnly || isIdle;
+    return matchesSearch && matchesSkill && matchesDesignation && matchesIdle;
   });
 
-  if (isLoading || skillsLoading) {
+  if (isLoading || skillsLoading || allocationsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-500">Loading...</div>
@@ -787,6 +804,18 @@ const EmployeesPage = () => {
               ))}
             </select>
 
+            <button
+              onClick={() => setIdleOnly(v => !v)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                idleOnly
+                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+              title="Show only employees not assigned to any project"
+            >
+              Idle Only
+            </button>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -822,6 +851,7 @@ const EmployeesPage = () => {
                 <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Hours/Day</th>
                 <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Skills</th>
+                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned Projects</th>
                 <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
@@ -829,7 +859,7 @@ const EmployeesPage = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-5 py-16 text-center">
+                  <td colSpan="8" className="px-5 py-16 text-center">
                     <div className="text-slate-400">
                       <p className="text-lg font-medium mb-1">No employees found</p>
                       <p className="text-sm">Try adjusting your search query</p>
@@ -891,6 +921,35 @@ const EmployeesPage = () => {
                             <span className="text-xs text-slate-400">—</span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Assigned Projects */}
+                      <td className="px-5 py-4">
+                        {(() => {
+                          const projects = employeeProjectsMap[employee.id];
+                          if (!projects || projects.size === 0) {
+                            return (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                Idle
+                              </span>
+                            );
+                          }
+                          const list = [...projects];
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {list.slice(0, 2).map((name, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 max-w-[140px] truncate" title={name}>
+                                  {name}
+                                </span>
+                              ))}
+                              {list.length > 2 && (
+                                <span className="text-xs text-slate-400 self-center" title={list.slice(2).join(', ')}>
+                                  +{list.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Status */}
