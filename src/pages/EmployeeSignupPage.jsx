@@ -85,8 +85,8 @@ const EmployeeSignupPage = () => {
                 ]}
             />
 
-            <div className="flex flex-1 items-start justify-center p-8 bg-gradient-to-br from-emerald-50 to-slate-50 overflow-y-auto">
-                <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white/95 p-8 shadow-[0_25px_80px_rgba(15,23,42,0.1)] backdrop-blur my-8">
+            <div className="flex flex-1 items-start justify-center p-4 sm:p-8 bg-gradient-to-br from-emerald-50 to-slate-50 overflow-y-auto">
+                <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white/95 p-5 sm:p-8 shadow-[0_25px_80px_rgba(15,23,42,0.1)] backdrop-blur my-4 sm:my-8">
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Employee Signup</h1>
                         <p className="mt-1.5 text-sm text-slate-500">
@@ -130,7 +130,7 @@ const EmployeeSignupPage = () => {
                         </div>
 
                         {/* Designation + Employee Type */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Designation</label>
                                 <div className="relative">

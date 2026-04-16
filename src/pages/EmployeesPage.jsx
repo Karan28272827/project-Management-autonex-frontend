@@ -775,19 +775,19 @@ const EmployeesPage = () => {
   return (
     <div className="space-y-6 p-2">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Employees</h1>
           <p className="text-slate-500 text-sm mt-1">Manage team members and their availability</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Search Bar */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
 
             <select
               value={skillFilter}
               onChange={(e) => setSkillFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white min-w-[140px]"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
             >
               <option value="">All Skills</option>
               {predefinedSkills.map(s => <option key={s} value={s}>{s}</option>)}
@@ -796,7 +796,7 @@ const EmployeesPage = () => {
             <select
               value={designationFilter}
               onChange={(e) => setDesignationFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white min-w-[170px]"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
             >
               <option value="">All Designations</option>
               {designationOptions.map((designation) => (
@@ -823,7 +823,7 @@ const EmployeesPage = () => {
                 placeholder="Search employees..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none w-64"
+                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none w-full sm:w-64"
               />
             </div>
           </div>
@@ -1010,8 +1010,8 @@ const EmployeesPage = () => {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
             {/* Fixed Header */}
             <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex justify-between items-center">
@@ -1032,9 +1032,9 @@ const EmployeesPage = () => {
 
             {/* Scrollable Form Content */}
             <div className="overflow-y-auto flex-1">
-              <form onSubmit={handleSubmit} className="p-6" id="employee-form">
+              <form onSubmit={handleSubmit} className="p-4 sm:p-6" id="employee-form">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Full Name <span className="text-red-500">*</span>
@@ -1063,7 +1063,7 @@ const EmployeesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Razorpay Email
@@ -1078,7 +1078,7 @@ const EmployeesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Designation <span className="text-red-500">*</span>
@@ -1114,7 +1114,7 @@ const EmployeesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Hours/Day <span className="text-red-500">*</span>
@@ -1147,7 +1147,7 @@ const EmployeesPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Status <span className="text-red-500">*</span>

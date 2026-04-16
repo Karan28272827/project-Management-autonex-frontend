@@ -236,7 +236,7 @@ const ParentProjectsPage = () => {
                             )}
 
                             {/* Stats */}
-                            <div className="grid grid-cols-3 gap-3 mb-4">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
                                 <div className="bg-slate-50 rounded-lg p-2 text-center">
                                     <FolderTree className="w-4 h-4 mx-auto text-slate-400 mb-1" />
                                     <p className="text-lg font-bold text-slate-800">{program.sub_projects_count || 0}</p>
@@ -306,8 +306,8 @@ const ParentProjectsPage = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-2 sm:p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
                         {/* Modal Header */}
                         <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white flex-shrink-0">
                             <div className="flex justify-between items-center">
@@ -447,7 +447,7 @@ const ParentProjectsPage = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Start Date *

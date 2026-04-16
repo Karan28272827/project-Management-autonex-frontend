@@ -119,16 +119,16 @@ export default function LeaveCalendar({ filterEmployeeIds = null }) {
             {isLoading ? (
                 <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Loading...</div>
             ) : (
-                <div className="p-4">
+                <div className="p-2 sm:p-4">
                     {/* Day headers */}
-                    <div className="grid grid-cols-7 mb-2">
+                    <div className="grid grid-cols-7 mb-1 sm:mb-2">
                         {DAY_NAMES.map(d => (
                             <div key={d} className="text-center text-xs font-medium text-slate-400 py-1">{d}</div>
                         ))}
                     </div>
 
                     {/* Day cells */}
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                         {cells.map((day, idx) => {
                             if (!day) return <div key={`empty-${idx}`} />;
                             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -138,7 +138,7 @@ export default function LeaveCalendar({ filterEmployeeIds = null }) {
                             return (
                                 <div
                                     key={dateStr}
-                                    className={`min-h-[80px] rounded-xl border p-1.5 flex flex-col gap-1 transition-colors
+                                    className={`min-h-[56px] sm:min-h-[80px] rounded-lg sm:rounded-xl border p-1 sm:p-1.5 flex flex-col gap-1 transition-colors
                                         ${isToday ? 'border-blue-400 bg-blue-50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
                                 >
                                     <span className={`text-xs font-semibold self-end px-1 rounded-full

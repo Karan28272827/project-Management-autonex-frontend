@@ -138,7 +138,7 @@ const AdminLayout = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-200/60 flex items-center justify-between px-8 sticky top-0 z-40 bg-white/80 backdrop-blur-md">
+        <header className="h-20 bg-white border-b border-slate-200/60 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-40 bg-white/80 backdrop-blur-md">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -207,7 +207,7 @@ const AdminLayout = () => {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-8 relative">
+        <main className="flex-1 overflow-auto p-4 sm:p-8 relative">
           <div className="max-w-7xl mx-auto space-y-6">
             <Outlet />
           </div>

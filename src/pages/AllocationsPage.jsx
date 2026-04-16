@@ -783,7 +783,7 @@ const AllocationsPage = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Allocations</h1>
           <p className="mt-1 text-sm text-slate-500">Assign employees to projects</p>
@@ -927,9 +927,9 @@ const AllocationsPage = () => {
 
       {/* Create Allocation Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div
-            className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-xl w-full max-w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -1288,10 +1288,10 @@ const AllocationsPage = () => {
                           <label className="block text-sm font-medium text-gray-700">
                             Hours per Role
                           </label>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {selectedRoleTags.map(tag => (
                               <div key={tag} className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600 min-w-[80px]">{tag}:</span>
+                                <span className="text-sm text-gray-600 min-w-[60px] sm:min-w-[80px]">{tag}:</span>
                                 <input
                                   type="number"
                                   min="0"
@@ -1359,8 +1359,8 @@ const AllocationsPage = () => {
 
       {/* Edit Allocation Modal */}
       {editingAllocation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900">
                 Manage Allocations - {editingAllocation.project.name}
