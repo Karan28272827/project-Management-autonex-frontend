@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Search } from 'lucide-react';
+import { LogOut, Menu, Search, X } from 'lucide-react';
 import { navigation } from '../config/navigation';
 import api, { signupRequestApi } from '../services/api';
 import { useState } from 'react';
@@ -72,8 +72,15 @@ const AdminLayout = () => {
         {/* Brand Header */}
         <div className="relative overflow-hidden border-b border-white/10 px-6 py-6">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.18),_transparent_55%)]" />
-          <div className="relative">
+          <div className="relative flex items-start justify-between">
             <BrandLockup subtitle="Admin Control Center" tone="dark" />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="ml-2 mt-1 p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -214,10 +221,10 @@ const AdminLayout = () => {
         </main>
       </div>
 
-      {/* Mobile Overlay */}
+      {/* Backdrop — closes sidebar on outside click on all screen sizes */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
