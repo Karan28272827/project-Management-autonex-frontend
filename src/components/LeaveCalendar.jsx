@@ -39,7 +39,7 @@ function OverflowPopover({ events }) {
                 +{events.length} more
             </button>
             {open && (
-                <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[140px] max-w-[200px] flex flex-col gap-1">
+                <div className="absolute left-0 bottom-full mb-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[140px] max-w-[200px] flex flex-col gap-1">
                     {events.map((ev, i) => {
                         const isPending = ev.status === 'pending';
                         if (ev.kind === 'wfh') {
@@ -133,7 +133,7 @@ export default function LeaveCalendar({ filterEmployeeIds = null }) {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                 <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
