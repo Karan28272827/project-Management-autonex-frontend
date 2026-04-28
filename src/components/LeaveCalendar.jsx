@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { leaveApi } from '../services/api';
@@ -21,50 +22,79 @@ function toYMD(dateStr) {
 
 function OverflowPopover({ events }) {
     const [open, setOpen] = useState(false);
-    const ref = useRef(null);
+    const [rect, setRect] = useState(null);
+    const btnRef = useRef(null);
+    const popoverRef = useRef(null);
 
     useEffect(() => {
         if (!open) return;
-        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const handler = (e) => {
+            if (
+                popoverRef.current && !popoverRef.current.contains(e.target) &&
+                btnRef.current && !btnRef.current.contains(e.target)
+            ) setOpen(false);
+        };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [open]);
 
+    const handleClick = (e) => {
+        e.stopPropagation();
+        if (!open && btnRef.current) {
+            setRect(btnRef.current.getBoundingClientRect());
+        }
+        setOpen(o => !o);
+    };
+
+    const popover = open && rect && createPortal(
+        <div
+            ref={popoverRef}
+            style={{
+                position: 'fixed',
+                left: rect.left,
+                top: rect.top - 4,
+                transform: 'translateY(-100%)',
+                zIndex: 9999,
+            }}
+            className="bg-white border border-slate-200 rounded-lg shadow-xl p-2 min-w-[150px] max-w-[210px] flex flex-col gap-1"
+        >
+            {events.map((ev, i) => {
+                const isPending = ev.status === 'pending';
+                if (ev.kind === 'wfh') {
+                    return (
+                        <div key={i}
+                            className={`rounded px-1.5 py-1 text-[10px] font-medium leading-tight truncate
+                                ${WFH_COLOR.bg} ${WFH_COLOR.text} ${isPending ? PENDING_OPACITY : ''}`}
+                            title={`WFH: ${ev.employee_name}${isPending ? ' (pending)' : ''}`}>
+                            🏠 {ev.employee_name}
+                        </div>
+                    );
+                }
+                const c = LEAVE_COLORS[ev.leave_type] || LEAVE_COLORS.default;
+                return (
+                    <div key={i}
+                        className={`rounded px-1.5 py-1 text-[10px] font-medium leading-tight truncate
+                            ${c.bg} ${c.text} ${isPending ? PENDING_OPACITY : ''}`}
+                        title={`${c.label}: ${ev.employee_name}${isPending ? ' (pending)' : ''}`}>
+                        {ev.employee_name}
+                    </div>
+                );
+            })}
+        </div>,
+        document.body
+    );
+
     return (
-        <div ref={ref} className="relative">
+        <>
             <button
-                onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+                ref={btnRef}
+                onClick={handleClick}
                 className="text-[10px] text-slate-500 hover:text-slate-700 px-1 py-0.5 rounded hover:bg-slate-100 transition-colors"
             >
                 +{events.length} more
             </button>
-            {open && (
-                <div className="absolute left-0 bottom-full mb-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[140px] max-w-[200px] flex flex-col gap-1">
-                    {events.map((ev, i) => {
-                        const isPending = ev.status === 'pending';
-                        if (ev.kind === 'wfh') {
-                            return (
-                                <div key={i}
-                                    className={`rounded px-1.5 py-1 text-[10px] font-medium leading-tight truncate
-                                        ${WFH_COLOR.bg} ${WFH_COLOR.text} ${isPending ? PENDING_OPACITY : ''}`}
-                                    title={`WFH: ${ev.employee_name}${isPending ? ' (pending)' : ''}`}>
-                                    🏠 {ev.employee_name}
-                                </div>
-                            );
-                        }
-                        const c = LEAVE_COLORS[ev.leave_type] || LEAVE_COLORS.default;
-                        return (
-                            <div key={i}
-                                className={`rounded px-1.5 py-1 text-[10px] font-medium leading-tight truncate
-                                    ${c.bg} ${c.text} ${isPending ? PENDING_OPACITY : ''}`}
-                                title={`${c.label}: ${ev.employee_name}${isPending ? ' (pending)' : ''}`}>
-                                {ev.employee_name}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+            {popover}
+        </>
     );
 }
 
