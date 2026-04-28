@@ -13,6 +13,8 @@ const TABS = ['Leave List', 'Calendar', 'WFH Requests'];
 const LeavesPage = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('Leave List');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [remarkModal, setRemarkModal] = useState(null); // { leaveId }
   const [remark, setRemark] = useState('');
@@ -108,6 +110,15 @@ const LeavesPage = () => {
   const getEmployeeName = (id) => employees.find(e => e.id === id)?.name || `Employee #${id}`;
   const activeEmployees = employees.filter(e => e.status === 'active');
 
+  // Pagination: reset to page 1 when tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(leaves.length / PAGE_SIZE);
+  const paginatedLeaves = leaves.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const STATUS_BADGE = {
     pending:  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"><Clock className="w-3 h-3"/>Pending</span>,
     approved: <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"><CheckCircle className="w-3 h-3"/>Approved</span>,
@@ -133,7 +144,7 @@ const LeavesPage = () => {
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
         {TABS.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
+          <button key={tab} onClick={() => handleTabChange(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}>
@@ -149,6 +160,7 @@ const LeavesPage = () => {
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-slate-400">Loading leaves...</div>
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -161,10 +173,10 @@ const LeavesPage = () => {
                 <tbody className="divide-y divide-slate-100">
                   {leaves.length === 0 ? (
                     <tr><td colSpan="7" className="px-5 py-16 text-center text-slate-400">No leaves recorded yet</td></tr>
-                  ) : leaves.map((leave) => {
+                  ) : paginatedLeaves.map((leave) => {
                     const start = new Date(leave.start_date);
                     const end = new Date(leave.end_date);
-                    const duration = Math.ceil((end - start) / (1000*60*60*24)) || 1;
+                    const duration = Math.round((end - start) / (1000*60*60*24)) + 1;
                     const isPending = !leave.status || leave.status === 'pending';
                     return (
                       <tr key={leave.leave_id} className="hover:bg-slate-50 transition-colors">
@@ -219,6 +231,54 @@ const LeavesPage = () => {
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+                <p className="text-sm text-slate-500">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, leaves.length)} of {leaves.length} items
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .reduce((acc, p, idx, arr) => {
+                      if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, idx) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            currentPage === p
+                              ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       )}

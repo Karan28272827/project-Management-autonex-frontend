@@ -1,8 +1,8 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { parentProjectApi, employeeApi } from '../services/api';
-import { Plus, X, Edit, Trash2, FolderTree, Users, Calendar, Clock, ChevronRight, Layers } from 'lucide-react';
+import { parentProjectApi, employeeApi, subProjectApi, allocationApi } from '../services/api';
+import { Plus, X, Edit, Trash2, FolderTree, Users, Calendar, Clock, ChevronRight, Layers, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -30,7 +30,38 @@ const ParentProjectsPage = () => {
         queryFn: employeeApi.getAll,
     });
 
-    const visibleParentProjects = isPm ? getPmProjects(parentProjects, pmEmployeeId) : parentProjects;
+    // Fetch sub-projects and allocations for manpower stats
+    const { data: subProjects = [] } = useQuery({
+        queryKey: ['sub-projects'],
+        queryFn: subProjectApi.getAll,
+        staleTime: 2 * 60 * 1000,
+    });
+    const { data: allocations = [] } = useQuery({
+        queryKey: ['allocations'],
+        queryFn: allocationApi.getAll,
+        staleTime: 2 * 60 * 1000,
+    });
+
+    // Build a lookup: parentProjectId → { required, assigned }
+    const manpowerByParent = {};
+    subProjects.forEach(sp => {
+        const pid = sp.main_project_id;
+        if (!pid) return;
+        if (!manpowerByParent[pid]) manpowerByParent[pid] = { required: 0, assignedIds: new Set() };
+        manpowerByParent[pid].required += sp.required_manpower || 0;
+    });
+    allocations.forEach(alloc => {
+        const sp = subProjects.find(s => s.id === alloc.sub_project_id);
+        if (!sp?.main_project_id) return;
+        const pid = sp.main_project_id;
+        if (manpowerByParent[pid]) manpowerByParent[pid].assignedIds.add(alloc.employee_id);
+    });
+
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const visibleParentProjects = (isPm ? getPmProjects(parentProjects, pmEmployeeId) : parentProjects)
+        .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     // Mutations
     const createMutation = useMutation({
@@ -170,24 +201,36 @@ const ParentProjectsPage = () => {
                         Manage main projects and long-term initiatives
                     </p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingProject(null);
-                        setIsModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 transition-all duration-200 hover:-translate-y-0.5"
-                >
-                    <Plus className="w-4 h-4" />
-                    New Project
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Search projects..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 w-52 placeholder:text-slate-400"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            setEditingProject(null);
+                            setIsModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 transition-all duration-200 hover:-translate-y-0.5"
+                    >
+                        <Plus className="w-4 h-4" />
+                        New Project
+                    </button>
+                </div>
             </div>
 
             {/* Programs Grid */}
             {visibleParentProjects.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                     <Layers className="w-12 h-12 mx-auto text-slate-300 mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No Projects Yet</h3>
-                    <p className="text-slate-500 mb-6">Create your first project to organize related sub-projects.</p>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">{searchQuery ? 'No projects match your search' : 'No Projects Yet'}</h3>
+                    <p className="text-slate-500 mb-6">{searchQuery ? `No results for "${searchQuery}". Try a different name.` : 'Create your first project to organize related sub-projects.'}</p>
                     <button
                         onClick={() => setIsModalOpen(true)}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors"
@@ -250,9 +293,15 @@ const ParentProjectsPage = () => {
                                     <p className="text-xs text-slate-500">Start</p>
                                 </div>
                                 <div className="bg-slate-50 rounded-lg p-2 text-center">
-                                    <Clock className="w-4 h-4 mx-auto text-slate-400 mb-1" />
-                                    <p className="text-lg font-bold text-slate-800">{program.tentative_duration_months || '-'}</p>
-                                    <p className="text-xs text-slate-500">Weeks</p>
+                                    <Users className="w-4 h-4 mx-auto text-slate-400 mb-1" />
+                                    <p className="text-lg font-bold text-slate-800">
+                                        <span className={manpowerByParent[program.id]?.assignedIds.size >= (manpowerByParent[program.id]?.required || 0) && (manpowerByParent[program.id]?.required || 0) > 0 ? 'text-emerald-600' : 'text-slate-800'}>
+                                            {manpowerByParent[program.id]?.assignedIds.size ?? 0}
+                                        </span>
+                                        <span className="text-slate-400 font-normal mx-0.5">/</span>
+                                        <span className="text-slate-500 text-base">{manpowerByParent[program.id]?.required || 0}</span>
+                                    </p>
+                                    <p className="text-xs text-slate-500">Assigned / Req'd</p>
                                 </div>
                             </div>
 

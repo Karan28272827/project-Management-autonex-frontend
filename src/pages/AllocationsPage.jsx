@@ -494,6 +494,8 @@ const AllocationsPage = () => {
   const isPm = role === 'pm';
   const pmEmployeeId = getPmEmployeeId(user);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [availableEmployees, setAvailableEmployees] = useState([]);
@@ -609,7 +611,7 @@ const AllocationsPage = () => {
 
       // Find employees on leave during project dates
       const employeesOnLeaveList = employees.filter(emp => {
-        const empLeaves = leaves.filter(l => l.employee_id === emp.id);
+        const empLeaves = leaves.filter(l => l.employee_id === emp.id && l.status === 'approved');
         return empLeaves.some(leave =>
           datesOverlap(
             selectedProject.start_date,
@@ -780,6 +782,9 @@ const AllocationsPage = () => {
     requiredManpower: project.required_manpower || 0,
   })).filter(pa => pa.allocations.length > 0 || pa.requiredManpower > 0);
 
+  const totalPages = Math.ceil(projectAllocations.length / PAGE_SIZE);
+  const paginatedAllocations = projectAllocations.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -835,7 +840,7 @@ const AllocationsPage = () => {
                   </td>
                 </tr>
               ) : (
-                projectAllocations.map(({ project, allocations: projectAllocs, requiredManpower }) => (
+                paginatedAllocations.map(({ project, allocations: projectAllocs, requiredManpower }) => (
                   <tr key={project.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-800">{project.name}</div>
@@ -879,7 +884,7 @@ const AllocationsPage = () => {
                         </button>
                         {(() => {
                           const activeCount = projectAllocs.filter(a => {
-                            const empLeaves = leaves.filter(l => l.employee_id === a.employee_id);
+                            const empLeaves = leaves.filter(l => l.employee_id === a.employee_id && l.status === 'approved');
                             // Check active overlap
                             const hasOverlap = empLeaves.some(l =>
                               new Date(l.start_date) <= new Date(project.end_date) &&
@@ -923,6 +928,53 @@ const AllocationsPage = () => {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, projectAllocations.length)} of {projectAllocations.length} items
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        currentPage === p
+                          ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Create Allocation Modal */}
@@ -1117,15 +1169,15 @@ const AllocationsPage = () => {
                           {displayEmployees.map(employee => (
                             <div
                               key={employee.id}
-                              onClick={() => !employee.alreadyInProject && !employee.onLeave && handleEmployeeToggle(employee)}
-                              className={`p-3 border-b border-gray-100 last:border-b-0 ${employee.alreadyInProject || employee.onLeave ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer hover:bg-gray-50'} ${selectedEmployees.find(e => e.id === employee.id) ? 'bg-blue-50' : ''
+                              onClick={() => !employee.alreadyInProject && handleEmployeeToggle(employee)}
+                              className={`p-3 border-b border-gray-100 last:border-b-0 ${employee.alreadyInProject ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer hover:bg-gray-50'} ${selectedEmployees.find(e => e.id === employee.id) ? 'bg-blue-50' : ''
                                 }`}
                             >
                               <div className="flex items-center gap-3">
                                 <input
                                   type="checkbox"
                                   checked={!!selectedEmployees.find(e => e.id === employee.id)}
-                                  disabled={employee.alreadyInProject || employee.onLeave}
+                                  disabled={employee.alreadyInProject}
                                   onChange={() => { }}
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
                                 />
@@ -1143,7 +1195,7 @@ const AllocationsPage = () => {
                                       </span>
                                     )}
                                     {employee.onLeave && (
-                                      <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">
+                                      <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">
                                         On Leave
                                       </span>
                                     )}

@@ -20,6 +20,8 @@ const SignupRequestsPage = () => {
     const [rejectModal, setRejectModal] = useState(null); // { requestId, name }
     const [rejectReason, setRejectReason] = useState('');
     const [expandedId, setExpandedId] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 10;
 
     const { data: requests = [], isLoading } = useQuery({
         queryKey: ['signup-requests'],
@@ -54,6 +56,13 @@ const SignupRequestsPage = () => {
     });
 
     const pendingCount = requests.filter(r => r.status === 'pending').length;
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginatedRequests = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setCurrentPage(1);
+    };
 
     return (
         <div className="space-y-6">
@@ -75,7 +84,7 @@ const SignupRequestsPage = () => {
             {/* Tabs */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
                 {TABS.map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)}
+                    <button key={tab} onClick={() => handleTabChange(tab)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         }`}>
@@ -103,7 +112,7 @@ const SignupRequestsPage = () => {
                     </div>
                 ) : (
                     <div className="divide-y divide-slate-100">
-                        {filtered.map(req => {
+                        {paginatedRequests.map(req => {
                             const isExpanded = expandedId === req.id;
                             return (
                                 <div key={req.id} className="hover:bg-slate-50/50 transition-colors">
@@ -211,6 +220,45 @@ const SignupRequestsPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1 mt-2">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        Previous
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                        .reduce((acc, p, idx, arr) => {
+                            if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                            acc.push(p);
+                            return acc;
+                        }, [])
+                        .map((p, idx) =>
+                            p === '...' ? (
+                                <span key={`ellipsis-${idx}`} className="px-2 text-slate-400">…</span>
+                            ) : (
+                                <button key={p} onClick={() => setCurrentPage(p)}
+                                    className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                                        currentPage === p
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-50'
+                                    }`}>
+                                    {p}
+                                </button>
+                            )
+                        )}
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        Next
+                    </button>
+                </div>
+            )}
 
             {/* Signup link callout */}
             <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 flex items-center gap-3">

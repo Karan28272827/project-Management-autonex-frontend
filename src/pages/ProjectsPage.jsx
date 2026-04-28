@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { subProjectApi, parentProjectApi, employeeApi, allocationApi, skillApi, leaveApi, guidelineApi } from '../services/api';
-import { Plus, Edit, Trash2, X, UserCheck, Users, ChevronDown, ArrowRight, Copy, Settings, UploadCloud, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, X, UserCheck, Users, ChevronDown, ArrowRight, Copy, Settings, UploadCloud, FileText, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -25,6 +25,11 @@ const SkillMultiSelect = ({ options, value, onChange }) => {
   }, []);
 
   const toggleSkill = (skill) => {
+    if (skill === 'Any Skill') {
+      onChange([]);
+      setIsOpen(false);
+      return;
+    }
     onChange(
       value.includes(skill)
         ? value.filter((item) => item !== skill)
@@ -50,7 +55,7 @@ const SkillMultiSelect = ({ options, value, onChange }) => {
               </span>
             ))
           ) : (
-            <span className="text-gray-400 text-sm">Select required skills...</span>
+            <span className="text-gray-500 text-sm font-medium">Any Skill</span>
           )}
         </div>
         <div className="flex items-center gap-2 pl-2">
@@ -61,6 +66,16 @@ const SkillMultiSelect = ({ options, value, onChange }) => {
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+          {/* Any Skill option — clears all skill filters */}
+          <label className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100">
+            <input
+              type="radio"
+              checked={value.length === 0}
+              onChange={() => toggleSkill('Any Skill')}
+              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+            />
+            <span className="text-gray-700 font-medium">Any Skill</span>
+          </label>
           {options.length > 0 ? (
             options.map((skill) => (
               <label
@@ -364,10 +379,6 @@ const ProjectsPage = () => {
     const formData = new FormData(e.target);
     const selectedMainProjectId = parseInt(formData.get('main_project_id') || filterMainProjectId || '', 10) || null;
 
-    if (selectedSkills.length === 0) {
-      toast.error('Please select at least one required skill');
-      return;
-    }
 
     if (!selectedMainProjectId) {
       toast.error('Please select a parent project');
@@ -375,17 +386,16 @@ const ProjectsPage = () => {
     }
 
     const startDate = formData.get('start_date');
-    const endDate = formData.get('end_date');
+    const endDate = formData.get('end_date') || null;
 
-    if (isEndDateBeforeStartDate(startDate, endDate)) {
+    if (endDate && isEndDateBeforeStartDate(startDate, endDate)) {
       toast.error(getEndDateValidationMessage());
       return;
     }
 
     const start = new Date(startDate);
-    const end = new Date(endDate);
-    const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    const durationWeeks = Math.floor(durationDays / 7);
+    const durationDays = endDate ? Math.ceil((new Date(endDate) - start) / (1000 * 60 * 60 * 24)) + 1 : 0;
+    const durationWeeks = endDate ? Math.floor(durationDays / 7) : 0;
 
     const employeesRequired = parseInt(formData.get('employees_required')) || 0;
 
@@ -531,11 +541,24 @@ const ProjectsPage = () => {
 
   const [searchParams] = useSearchParams();
   const filterMainProjectId = searchParams.get('project');
+  const [subProjectSearch, setSubProjectSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const filteredProjects = (filterMainProjectId
     ? visibleProjects.filter(p => p.main_project_id === parseInt(filterMainProjectId))
     : visibleProjects
-  ).sort((a, b) => a.id - b.id); // Sort by ID for sequential order
+  )
+    .filter(p => p.name.toLowerCase().includes(subProjectSearch.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [subProjectSearch, filterMainProjectId]);
+
+  const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
+  const paginatedProjects = filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const currentMainProject = visibleMainProjects.find(p => p.id === parseInt(filterMainProjectId));
 
@@ -560,7 +583,17 @@ const ProjectsPage = () => {
               : 'Manage tasks and resource allocation across all projects'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search sub-projects..."
+              value={subProjectSearch}
+              onChange={e => setSubProjectSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 w-52 placeholder:text-slate-400"
+            />
+          </div>
           <Link
             to={`${prefix}/projects`}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium text-sm rounded-xl shadow-sm hover:bg-slate-50 transition-colors"
@@ -588,21 +621,18 @@ const ProjectsPage = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50/80 border-b border-slate-100">
               <tr>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Sub-Project</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Parent</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Project Manager</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Skills</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Total MP</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Allocated</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Remaining</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Tasks</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Timeline</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Priority</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Avg Time</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Tasks/Emp</th>
-                <th className="px-5 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Recommendation</th>
-                <th className="px-5 py-4 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Parent</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Sub-Project</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Project Manager</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Skills</th>
+                <th className="px-5 py-4 text-center text-xs font-bold text-slate-800 uppercase tracking-wider">Required</th>
+                <th className="px-5 py-4 text-center text-xs font-bold text-slate-800 uppercase tracking-wider">Allocated</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Timeline</th>
+                <th className="px-5 py-4 text-center text-xs font-bold text-slate-800 uppercase tracking-wider">Priority</th>
+                <th className="px-5 py-4 text-center text-xs font-bold text-slate-800 uppercase tracking-wider">Avg Time</th>
+                <th className="px-5 py-4 text-left text-xs font-bold text-slate-800 uppercase tracking-wider">Recommendation</th>
+                <th className="px-5 py-4 text-center text-xs font-bold text-slate-800 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-4 text-right text-xs font-bold text-slate-800 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -616,7 +646,7 @@ const ProjectsPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProjects.map((project) => {
+                paginatedProjects.map((project) => {
                   const parentProject = visibleMainProjects.find(p => p.id === project.main_project_id);
                   const matchingTotal = getMatchingEmployees(project).length;
                   const allocatedManpower = getAllocatedManpower(project);
@@ -628,13 +658,11 @@ const ProjectsPage = () => {
                   return (
                     <tr key={project.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-800">{project.name}</div>
-                        <div className="text-xs text-slate-400">{parentProject?.project_type || '—'}</div>
+                        <div className="font-semibold text-slate-800">{parentProject?.name || '—'}</div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-sm text-slate-600">
-                          {parentProject?.name || '—'}
-                        </span>
+                        <div className="text-sm text-slate-600">{project.name}</div>
+                        <div className="text-xs text-slate-400">{parentProject?.project_type || '—'}</div>
                       </td>
                       <td className="px-5 py-4">
                         <span className="text-sm text-slate-600">
@@ -659,8 +687,8 @@ const ProjectsPage = () => {
                         </div>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <div className="font-semibold text-slate-800">{matchingTotal}</div>
-                        <div className="text-xs text-slate-400">available</div>
+                        <div className="font-semibold text-slate-800">{project.required_manpower || '—'}</div>
+                        <div className="text-xs text-slate-400">needed</div>
                       </td>
                       <td className="px-5 py-4 text-center">
                         {allocatedManpower > 0 ? (
@@ -684,17 +712,6 @@ const ProjectsPage = () => {
                           </button>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-center">
-                        <div className={`font-semibold ${remainingManpower < 0 ? 'text-red-600' : remainingManpower > 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
-                          {remainingManpower}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {remainingManpower >= 0 ? 'available' : 'exceeded'}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <div className="font-semibold text-slate-800">{project.total_tasks}</div>
-                      </td>
                       <td className="px-5 py-4">
                         <div className="text-sm text-slate-700">
                           {format(new Date(project.start_date), 'MMM d')} — {format(new Date(project.end_date), 'MMM d')}
@@ -712,21 +729,7 @@ const ProjectsPage = () => {
                         </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <div className="font-medium text-slate-700">{Math.round((project.estimated_time_per_task || 0) * 60)}m</div>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <div className="font-semibold text-slate-800">{tasksPerEmp}</div>
-                        <div className="text-xs text-slate-400">per emp</div>
-                        {allocatedManpower > 0 && (
-                          <div className="mt-1 text-xs space-y-0.5">
-                            <div className="text-red-500" title="If you remove 1 employee, each person handles this many tasks">
-                              Remove 1 → {Math.round(project.total_tasks / (allocatedManpower - 1 || 1))}/person
-                            </div>
-                            <div className="text-emerald-500" title="Add 1 employee">
-                              Add 1 → {Math.round(project.total_tasks / (allocatedManpower + 1))}/person
-                            </div>
-                          </div>
-                        )}
+                        <div className="font-medium text-slate-700">{parseFloat(((project.estimated_time_per_task || 0) * 60).toFixed(1))}m</div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="space-y-1">
@@ -803,6 +806,53 @@ const ProjectsPage = () => {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} items
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        currentPage === p
+                          ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
@@ -920,8 +970,9 @@ const ProjectsPage = () => {
                       type="number"
                       name="estimated_time_per_task"
                       required
-                      min="1"
-                      defaultValue={(editingProject || copyingProject)?.estimated_time_per_task ? Math.round(((editingProject || copyingProject).estimated_time_per_task) * 60) : ''}
+                      min="0.1"
+                      step="0.1"
+                      defaultValue={(editingProject || copyingProject)?.estimated_time_per_task ? parseFloat(((editingProject || copyingProject).estimated_time_per_task * 60).toFixed(1)) : ''}
                       className="input"
                       placeholder="30"
                     />
@@ -956,12 +1007,11 @@ const ProjectsPage = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date <span className="text-red-500">*</span>
+                      End Date <span className="text-gray-400 font-normal">(optional)</span>
                     </label>
                     <input
                       type="date"
                       name="end_date"
-                      required
                       defaultValue={(editingProject || copyingProject)?.end_date}
                       className="input"
                     />
@@ -970,7 +1020,7 @@ const ProjectsPage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Required Skills <span className="text-red-500">*</span>
+                    Required Skills
                   </label>
                   <SkillMultiSelect
                     options={skillsData.map((skill) => skill.name)}
@@ -996,27 +1046,29 @@ const ProjectsPage = () => {
                     placeholder="Enter number of employees needed"
                   />
 
-                  {selectedSkills.length > 0 && (() => {
-                    const matchingCount = employees.filter(emp =>
-                      emp.status === 'active' &&
-                      selectedSkills.some(skill =>
-                        emp.skills?.some(empSkill =>
-                          empSkill.toLowerCase().includes(skill.toLowerCase())
-                        )
-                      )
-                    ).length;
+                  {(() => {
+                    const matchingCount = selectedSkills.length > 0
+                      ? employees.filter(emp =>
+                          emp.status === 'active' &&
+                          selectedSkills.some(skill =>
+                            emp.skills?.some(empSkill =>
+                              empSkill.toLowerCase().includes(skill.toLowerCase())
+                            )
+                          )
+                        ).length
+                      : employees.filter(emp => emp.status === 'active').length;
 
                     return (
                       <div className={`mt-2 p-3 rounded border ${matchingCount > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <div className="flex items-center gap-2">
                           <UserCheck className={`w-4 h-4 ${matchingCount > 0 ? 'text-green-600' : 'text-red-600'}`} />
                           <span className={`text-sm font-medium ${matchingCount > 0 ? 'text-green-800' : 'text-red-800'}`}>
-                            {matchingCount} employee{matchingCount !== 1 ? 's' : ''} available with matching skills
+                            {matchingCount} employee{matchingCount !== 1 ? 's' : ''} available{selectedSkills.length > 0 ? ' with matching skills' : ''}
                           </span>
                         </div>
                         {matchingCount === 0 && (
                           <p className="text-xs text-red-600 mt-1 ml-6">
-                            No employees found with the specified skills
+                            {selectedSkills.length > 0 ? 'No employees found with the specified skills' : 'No active employees found'}
                           </p>
                         )}
                       </div>

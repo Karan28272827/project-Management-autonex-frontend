@@ -621,6 +621,58 @@ const MultiSelectDropdown = ({ name, defaultValue = [], predefinedSkills, queryC
   );
 };
 
+const DesignationMultiSelect = ({ options, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggle = (opt) => {
+    onChange(value.includes(opt) ? value.filter(v => v !== opt) : [...value, opt]);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(o => !o)}
+        className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none min-w-[160px] justify-between"
+      >
+        <span className={value.length === 0 ? 'text-slate-500' : 'text-slate-800 font-medium'}>
+          {value.length === 0 ? 'All Designations' : value.length === 1 ? value[0] : `${value.length} selected`}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-lg py-1">
+          {value.length > 0 && (
+            <button
+              onClick={() => onChange([])}
+              className="w-full text-left px-4 py-1.5 text-xs text-slate-400 hover:text-slate-600 border-b border-slate-100 mb-1"
+            >
+              Clear all
+            </button>
+          )}
+          {options.map(opt => (
+            <label key={opt} className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={value.includes(opt)}
+                onChange={() => toggle(opt)}
+                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+              />
+              <span className="text-slate-700">{opt}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const EmployeesPage = () => {
   const queryClient = useQueryClient();
@@ -628,8 +680,10 @@ const EmployeesPage = () => {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
-  const [designationFilter, setDesignationFilter] = useState('');
+  const [designationFilter, setDesignationFilter] = useState([]);
   const [idleOnly, setIdleOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   // Fetch employees
   const { data: employees = [], isLoading } = useQuery({
@@ -758,11 +812,14 @@ const EmployeesPage = () => {
       employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (employee.designation && employee.designation.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesSkill = !skillFilter || (employee.skills && employee.skills.includes(skillFilter));
-    const matchesDesignation = !designationFilter || employee.designation === designationFilter;
+    const matchesDesignation = designationFilter.length === 0 || designationFilter.includes(employee.designation);
     const isIdle = !employeeProjectsMap[employee.id];
     const matchesIdle = !idleOnly || isIdle;
     return matchesSearch && matchesSkill && matchesDesignation && matchesIdle;
   });
+
+  const totalPages = Math.ceil(filteredEmployees.length / PAGE_SIZE);
+  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (isLoading || skillsLoading || allocationsLoading) {
     return (
@@ -775,58 +832,59 @@ const EmployeesPage = () => {
   return (
     <div className="space-y-6 p-2">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Employees</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage team members and their availability</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Search Bar */}
-          <div className="flex flex-wrap gap-2">
-
-            <select
-              value={skillFilter}
-              onChange={(e) => setSkillFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
-            >
-              <option value="">All Skills</option>
-              {predefinedSkills.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-
-            <select
-              value={designationFilter}
-              onChange={(e) => setDesignationFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
-            >
-              <option value="">All Designations</option>
-              {designationOptions.map((designation) => (
-                <option key={designation} value={designation}>{designation}</option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => setIdleOnly(v => !v)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                idleOnly
-                  ? 'bg-amber-50 border-amber-300 text-amber-700'
-                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-              }`}
-              title="Show only employees not assigned to any project"
-            >
-              Idle Only
-            </button>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none w-full sm:w-64"
-              />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Employees</h1>
+              <p className="text-slate-500 text-sm mt-0.5">Manage team members and their availability</p>
+            </div>
+            <div className="flex flex-col items-center px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <span className="text-2xl font-bold text-indigo-700 leading-none">{filteredEmployees.length}</span>
+              <span className="text-xs text-indigo-500 mt-0.5">{filteredEmployees.length === employees.length ? 'employees' : `of ${employees.length}`}</span>
             </div>
           </div>
+        </div>
+        {/* Filters + Search + Add button on one row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={skillFilter}
+            onChange={(e) => { setSkillFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
+          >
+            <option value="">All Skills</option>
+            {predefinedSkills.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <DesignationMultiSelect
+            options={designationOptions}
+            value={designationFilter}
+            onChange={(val) => { setDesignationFilter(val); setCurrentPage(1); }}
+          />
+
+          <button
+            onClick={() => { setIdleOnly(v => !v); setCurrentPage(1); }}
+            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              idleOnly
+                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+            title="Show only employees not assigned to any project"
+          >
+            Idle Only
+          </button>
+
+          <div className="relative flex-1 sm:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search employees..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none w-full sm:w-64"
+            />
+          </div>
+
           <button
             onClick={() => {
               setEditingEmployee(null);
@@ -867,7 +925,7 @@ const EmployeesPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredEmployees
+                paginatedEmployees
                   .map((employee) => (
                     <tr key={employee.id} className="hover:bg-slate-50 transition-colors">
                       {/* Employee Info */}
@@ -1006,6 +1064,55 @@ const EmployeesPage = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredEmployees.length)} of {filteredEmployees.length} employees
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        currentPage === p
+                          ? 'bg-indigo-600 border-indigo-600 text-white font-medium'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
